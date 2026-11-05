@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-label="RE:Chat – Alte Chats wieder lesen, wie damals">
+  <defs>
+    <pattern id="raster" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="12" r="1.6" fill="#2a2a2a"/>
+    </pattern>
+    <linearGradient id="verlauf" x1="0" x2="1">
+      <stop offset="0" stop-color="#121212"/>
+      <stop offset="1" stop-color="#0c0c0c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="24" fill="url(#verlauf)"/>
+  <rect width="1200" height="360" rx="24" fill="url(#raster)"/>
+  <!-- Leiterbahnen -->
+  <path d="M0 318 H120 L150 288 H262" fill="none" stroke="#2a2a2a" stroke-width="4"/>
+  <circle cx="262" cy="288" r="7" fill="none" stroke="#686868" stroke-width="3"/>
+  <path d="M1200 70 H990 L950 110 H860" fill="none" stroke="#2a2a2a" stroke-width="4"/>
+  <circle cx="860" cy="110" r="7" fill="none" stroke="#a6e3a1" stroke-width="3"/>
+  <!-- Logo: Sprechblase mit Zurückspulen -->
+  <path d="M136 92 H264 A24 24 0 0 1 288 116 V204 A24 24 0 0 1 264 228 H186 L146 262 V228 H136 A24 24 0 0 1 112 204 V116 A24 24 0 0 1 136 92 Z" fill="none" stroke="#a6e3a1" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M196 132 L156 160 L196 188 Z" fill="#a6e3a1"/>
+  <path d="M244 132 L204 160 L244 188 Z" fill="#a6e3a1" opacity="0.55"/>
+  <text x="318" y="190" font-family="Atkinson Hyperlegible, Segoe UI, Helvetica, Arial, sans-serif" font-size="84" font-weight="700" fill="#e6e6e6"><tspan fill="#a6e3a1">RE:</tspan>Chat</text>
+  <text x="322" y="244" font-family="Atkinson Hyperlegible, Segoe UI, Helvetica, Arial, sans-serif" font-size="30" fill="#a0a0a0">Alte Chats wieder lesen, wie damals</text>
+  <rect x="322" y="270" width="388" height="38" rx="19" fill="none" stroke="#a6e3a1" stroke-width="2"/>
+  <text x="516" y="296" text-anchor="middle" font-family="Atkinson Hyperlegible, Segoe UI, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2" fill="#a6e3a1">LOKAL · OFFLINE · OHNE UPLOAD</text>
+  <!-- Chatverlauf -->
+  <rect x="930" y="160" width="150" height="34" rx="10" fill="#313244"/>
+  <rect x="990" y="204" width="130" height="34" rx="10" fill="#a6e3a1" opacity="0.35"/>
+  <rect x="930" y="248" width="110" height="34" rx="10" fill="#313244"/>
+  <rect x="1010" y="292" width="110" height="20" rx="8" fill="#a6e3a1" opacity="0.18"/>
+</svg>

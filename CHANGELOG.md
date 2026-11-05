@@ -2,6 +2,27 @@
 
 Versionsnummern nach [SemVer](https://semver.org/lang/de/); vor 1.0 kann sich alles ändern.
 
+## [0.2.0] – 2026-11-05
+
+Neu ausgerichtet als Werkzeug für OSINT und digitale Forensik.
+
+### Neu
+- **Fallakte:** Aktenzeichen, Bearbeiter, Notizen, Zeitzone des Exportgeräts.
+- **Prüfsummen:** MD5 (eigene Umsetzung), SHA-1 und SHA-256 für Chat-Datei und Container.
+- **Asservatenliste** aller eingelesenen Dateien mit ZIP-Zeitstempeln (DOS-Zeit und Extended Timestamp in UTC), Dateisystem-Zeit und Prüfsummen auf Knopfdruck.
+- **Zeilennummern** der Quelldatei für jede Nachricht, in allen Exporten und im Bericht.
+- **UTC-Umrechnung** der Exportzeiten mit wählbarer Zeitzone, inklusive Sommerzeit.
+- **Anomalie-Erkennung:** rückläufige Zeitstempel, abweichende Zeit im Dateinamen (iOS) bzw. Datum (Android), Zeilen ohne Zeitstempel, doppelte Nachrichten, fehlende Anhänge, Dateien ohne Bezug im Chat.
+- **Medien und EXIF:** Kamera, Objektiv, Aufnahmezeit, Software, Autor und GPS aus JPEG-Bildern; GPS-Funde gehen in die Standorte ein.
+- **Neue Indikatoren:** IBAN (mit Prüfsumme), Krypto-Adressen, IPv4-Adressen, Absender ohne Kontaktnamen.
+- **Markierungen:** Nachrichten im Chat mit ☆ markieren und kommentieren.
+- **Forensischer Bericht** als druckbares HTML (für PDF) mit Fall, Asservat, Methodik und Grenzen, Beteiligten, Anomalien, markierten Nachrichten mit Kontext, Indikatoren, Ereignissen und Asservatenliste.
+- Exporte enthalten Zeile, Exportzeit, Zeit mit Offset und UTC.
+
+### Geändert
+- Startseite, Kopfzeile, README und Banner als OSINT- und Forensik-Werkzeug.
+- Analyse-Panel heißt jetzt „Forensik“, mit eigenen Reitern für Fall, Medien, Anomalien, Markierungen, Asservate und Bericht.
+
 ## [0.1.0] – 2026-11-05
 
 ### Neu

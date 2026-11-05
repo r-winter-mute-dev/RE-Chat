@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' blob: data:; media-src blob:; connect-src blob:; frame-src blob:; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#121212">
+<meta name="description" content="RE:Chat – exportierte WhatsApp-Chats wieder als scrollbaren Chat lesen. Läuft komplett lokal im Browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M12 8h40a8 8 0 0 1 8 8v24a8 8 0 0 1-8 8H28L14 58V48h-2a8 8 0 0 1-8-8V16a8 8 0 0 1 8-8z' fill='%23a6e3a1'/%3E%3C/svg%3E">
+<title>RE:Chat</title>
+<style>
+  /* Darkmode, Akzente: Catppuccin Mocha (MIT) */
+  :root {
+    color-scheme: dark;
+    --bg: #121212; --panel: #1a1a1a; --text: #e6e6e6; --muted: #a0a0a0;
+    --in: #242424; --out: #1f3527; --sys: #1a1a1a; --accent: #a6e3a1; --on-accent: #11111b;
+    --border: #2a2a2a; --hit: #f9e2af; --link: #89b4fa; --err: #f38ba8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 14.5px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column;
+  }
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    position: sticky; top: 0; z-index: 5;
+  }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; white-space: nowrap; }
+  header .grow { flex: 1; }
+  button, select, input {
+    font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  label.inline { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; }
+  #searchBox { display: flex; gap: 4px; align-items: center; }
+  #searchBox input { width: 170px; }
+  #hitCount { color: var(--muted); font-size: 12px; min-width: 52px; text-align: center; }
+  .hidden { display: none !important; }
+
+  #landing {
+    flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  #dropzone {
+    max-width: 560px; width: 100%; text-align: center; padding: 40px 24px;
+    border: 2px dashed var(--border); border-radius: 16px; background: var(--panel);
+  }
+  #dropzone.over { border-color: var(--accent); }
+  #dropzone h2 { margin-top: 0; }
+  #dropzone p { color: var(--muted); }
+  #dropzone .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 18px 0; }
+  #dropzone .btns button { background: var(--accent); color: var(--on-accent); font-weight: 600; border: none; padding: 9px 16px; }
+  #status { color: var(--muted); font-size: 13px; min-height: 1.4em; }
+  #status.err { color: var(--err); }
+  h1 .re { color: var(--accent); }
+
+  #chat { flex: 1; overflow-y: auto; padding: 10px 0 30px; }
+  #chat.dragover { outline: 3px dashed var(--accent); outline-offset: -8px; }
+  .day { content-visibility: auto; contain-intrinsic-size: auto 600px; padding: 0 4%; }
+  .daylabel {
+    text-align: center; margin: 14px 0 8px; position: sticky; top: 4px; z-index: 2;
+  }
+  .daylabel span {
+    background: var(--panel); color: var(--muted); font-size: 12.5px;
+    padding: 4px 12px; border-radius: 8px; border: 1px solid var(--border);
+  }
+  .msg { display: flex; margin: 2px 0; }
+  .msg.me { justify-content: flex-end; }
+  .bubble {
+    max-width: min(75%, 640px); background: var(--in); border-radius: 8px;
+    padding: 6px 9px 4px; box-shadow: 0 1px 1px rgba(0,0,0,.4);
+    overflow-wrap: anywhere; white-space: pre-wrap; position: relative;
+  }
+  .msg.me .bubble { background: var(--out); }
+  .msg.first { margin-top: 8px; }
+  .name { font-weight: 600; font-size: 13px; margin-bottom: 2px; white-space: normal; }
+  .msg.me .name, .solo .name { display: none; }
+  .msg.cont .name { display: none; }
+  .time { float: right; margin: 6px 0 -2px 10px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .sys { justify-content: center; }
+  .sys .bubble {
+    background: var(--sys); color: var(--muted); font-size: 12.5px; text-align: center; max-width: 85%;
+  }
+  .note { font-style: italic; color: var(--muted); }
+  .bubble a { color: var(--link); }
+  .bubble code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .media { margin: 2px 0 4px; }
+  .media:empty { min-height: 40px; }
+  .media img, .media video {
+    display: block; max-width: 100%; max-height: 420px; border-radius: 6px; cursor: zoom-in;
+  }
+  .media video { cursor: default; }
+  .media audio { width: 270px; max-width: 100%; display: block; }
+  .media .file {
+    display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px;
+    background: rgba(255,255,255,.06); border-radius: 6px; color: inherit; text-decoration: none;
+  }
+  .media .missing { color: var(--muted); font-style: italic; font-size: 13px; }
+  .msg.hit .bubble { outline: 2px solid var(--hit); }
+  mark { background: var(--hit); color: inherit; border-radius: 2px; }
+
+
+  /* ===== Analyse-Panel ===== */
+  #panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); z-index: 15;
+    background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column;
+    box-shadow: -8px 0 24px rgba(0,0,0,.5);
+  }
+  #panel .phead { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  #panel .phead h2 { font-size: 15px; margin: 0 10px 0 0; }
+  #panel .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  #panel .tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  #pbody { overflow-y: auto; padding: 14px 16px 40px; flex: 1; }
+  #pbody h3 { font-size: 14px; margin: 22px 0 8px; }
+  #pbody h3:first-child { margin-top: 4px; }
+  #pbody p.hint { color: var(--muted); font-size: 12.5px; margin: 4px 0 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .tile { background: var(--panel); border-radius: 10px; padding: 10px 12px; }
+  .tile b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: 12px; }
+  table.t { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  table.t th, table.t td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.t th { color: var(--muted); font-weight: 600; position: sticky; top: -14px; background: var(--bg); }
+  table.t td.n, table.t th.n { text-align: right; }
+  table.t tr.jump { cursor: pointer; }
+  table.t tr.jump:hover td { background: var(--panel); }
+  table.t td.v { overflow-wrap: anywhere; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .heat { display: grid; grid-template-columns: 34px repeat(24, 1fr); gap: 2px; font-size: 10.5px; color: var(--muted); }
+  .heat div { aspect-ratio: 1; border-radius: 3px; }
+  .heat .lab { aspect-ratio: auto; display: flex; align-items: center; justify-content: center; }
+  .heat .cell { background: var(--accent); }
+  .heat .cell.zero { background: var(--panel); }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 140px; border-bottom: 1px solid var(--border); }
+  .bars div { flex: 1; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 1px; }
+  .bars div:hover, .heat .cell:hover, .hbar i:hover { outline: 2px solid var(--text); }
+  .axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .hbar { display: grid; grid-template-columns: minmax(80px, 30%) 1fr 70px; gap: 6px; align-items: center; font-size: 13px; margin: 3px 0; }
+  .hbar i { display: block; height: 14px; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .hbar span:last-child { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hbar span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #tip { position: fixed; z-index: 30; pointer-events: none; background: var(--sys); color: var(--text); border: 1px solid var(--border);
+    font-size: 12px; padding: 4px 8px; border-radius: 6px; white-space: pre; }
+  .filterrow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0 8px; }
+  .chips button { font-size: 12px; padding: 3px 8px; }
+  .chips button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .hash { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+
+  #lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,.88); display: flex;
+    align-items: center; justify-content: center; z-index: 20; cursor: zoom-out;
+  }
+  #lightbox img { max-width: 96vw; max-height: 96vh; }
+  footer.info { text-align: center; color: var(--muted); font-size: 12px; padding: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="re">RE:</span>Chat <span id="title" style="font-weight:400;color:var(--muted)"></span></h1>
+  <div class="grow"></div>
+  <span id="controls" class="hidden" style="display:contents">
+    <label class="inline hidden" id="chatSelWrap">Chat
+      <select id="chatSel"></select>
+    </label>
+    <label class="inline">Ich bin
+      <select id="meSel"></select>
+    </label>
+    <label class="inline">Datum
+      <input type="date" id="dateJump">
+    </label>
+    <span id="searchBox">
+      <input type="search" id="search" placeholder="Suchen …">
+      <button id="prevHit" title="Vorheriger Treffer">▲</button>
+      <button id="nextHit" title="Nächster Treffer">▼</button>
+      <span id="hitCount"></span>
+    </span>
+    <button id="openPanel" title="Statistik, Indikatoren, Export">🔍 Analyse</button>
+    <button id="reset" title="Anderen Chat laden">Neu laden</button>
+  </span>
+</header>
+
+<div id="landing">
+  <div id="dropzone">
+    <h2><span class="re" style="color:var(--accent)">RE:</span>Chat</h2>
+    <p style="margin-top:-8px">Exportierte WhatsApp-Chats wieder lesen, so wie sie damals aussahen.</p>
+    <p>Zieh die exportierte <b>.txt</b>, die <b>.zip</b> oder den ganzen <b>Ordner</b> hierher.</p>
+    <div class="btns">
+      <button id="pickFiles">Datei(en) wählen (.txt / .zip)</button>
+      <button id="pickDir">Ordner wählen</button>
+    </div>
+    <div id="status"></div>
+    <p style="font-size:12px;margin-bottom:0">Alles läuft lokal in deinem Browser. Nichts wird hochgeladen, nichts wird gespeichert.<br>Kein offizielles Produkt, nicht mit WhatsApp oder Meta verbunden.</p>
+  </div>
+</div>
+
+<main id="chat" class="hidden"></main>
+
+<aside id="panel" class="hidden" aria-label="Analyse">
+  <div class="phead">
+    <h2>Analyse</h2>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="overview">Übersicht</button>
+      <button role="tab" data-tab="people">Personen</button>
+      <button role="tab" data-tab="activity">Aktivität</button>
+      <button role="tab" data-tab="ioc">Indikatoren</button>
+      <button role="tab" data-tab="words">Wörter</button>
+      <button role="tab" data-tab="events">Ereignisse</button>
+      <button role="tab" data-tab="export">Export</button>
+    </div>
+    <div class="grow"></div>
+    <button id="closePanel" title="Schließen (Esc)">✕</button>
+  </div>
+  <div id="pbody"></div>
+</aside>
+<div id="tip" class="hidden"></div>
+
+<input type="file" id="fileInput" class="hidden" multiple accept=".txt,.zip,text/plain,application/zip,image/*,video/*,audio/*">
+<input type="file" id="dirInput" class="hidden" webkitdirectory directory multiple>
+
+<script>
+"use strict";
+
+/* ===================== ZIP-Reader (ohne Bibliothek) ===================== */
+
+async function readZip(file) {
+  const tailLen = Math.min(file.size, 65557);
+  const tail = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+  let eocd = -1;
+  for (let i = tailLen - 22; i >= 0; i--) {
+    if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error(file.name + ": keine gültige ZIP-Datei");
+  let count = tail.getUint16(eocd + 10, true);
+  let cdSize = tail.getUint32(eocd + 12, true);
+  let cdOff = tail.getUint32(eocd + 16, true);
+
+  // ZIP64 (große Exporte > 4 GB oder > 65535 Dateien)
+  if (cdOff === 0xffffffff || count === 0xffff || cdSize === 0xffffffff) {
+    const loc = eocd - 20;
+    if (loc >= 0 && tail.getUint32(loc, true) === 0x07064b50) {
+      const z64off = Number(tail.getBigUint64(loc + 8, true));
+      const z = new DataView(await file.slice(z64off, z64off + 56).arrayBuffer());
+      if (z.getUint32(0, true) === 0x06064b50) {
+        count = Number(z.getBigUint64(32, true));
+        cdSize = Number(z.getBigUint64(40, true));
+        cdOff = Number(z.getBigUint64(48, true));
+      }
+    }
+  }
+
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer());
+  const dec = new TextDecoder("utf-8");
+  const out = [];
+  let p = 0;
+  for (let i = 0; i < count && p + 46 <= cd.byteLength; i++) {
+    if (cd.getUint32(p, true) !== 0x02014b50) break;
+    const method = cd.getUint16(p + 10, true);
+    let csize = cd.getUint32(p + 20, true);
+    let usize = cd.getUint32(p + 24, true);
+    const nlen = cd.getUint16(p + 28, true);
+    const xlen = cd.getUint16(p + 30, true);
+    const clen = cd.getUint16(p + 32, true);
+    let off = cd.getUint32(p + 42, true);
+    const name = dec.decode(new Uint8Array(cd.buffer, p + 46, nlen));
+    if (csize === 0xffffffff || usize === 0xffffffff || off === 0xffffffff) {
+      let q = p + 46 + nlen; const end = q + xlen;
+      while (q + 4 <= end) {
+        const id = cd.getUint16(q, true), sz = cd.getUint16(q + 2, true);
+        if (id === 1) {
+          let r = q + 4;
+          if (usize === 0xffffffff) { usize = Number(cd.getBigUint64(r, true)); r += 8; }
+          if (csize === 0xffffffff) { csize = Number(cd.getBigUint64(r, true)); r += 8; }
+          if (off === 0xffffffff) { off = Number(cd.getBigUint64(r, true)); }
+        }
+        q += 4 + sz;
+      }
+    }
+    p += 46 + nlen + xlen + clen;
+    if (name.endsWith("/")) continue;
+    const entry = { method, csize, off };
+    out.push({ path: name, size: usize, get: () => zipExtract(file, entry) });
+  }
+  return out;
+}
+
+async function zipExtract(file, e) {
+  const h = new DataView(await file.slice(e.off, e.off + 30).arrayBuffer());
+  const start = e.off + 30 + h.getUint16(26, true) + h.getUint16(28, true);
+  const raw = file.slice(start, start + e.csize);
+  if (e.method === 0) return raw;
+  if (e.method === 8) {
+    return new Response(raw.stream().pipeThrough(new DecompressionStream("deflate-raw"))).blob();
+  }
+  throw new Error("ZIP-Kompressionsmethode " + e.method + " wird nicht unterstützt");
+}
+
+/* ===================== Parser für WhatsApp-Exporte ===================== */
+
+const INVISIBLE = /[‎‏‪-‮⁦-⁩﻿]/g;
+const DATE = "(\\d{1,4}[./-]\\d{1,2}[./-]\\d{1,4})";
+const TIME = "(\\d{1,2}[:.]\\d{2}(?:[:.]\\d{2})?(?:\\s?[APap]\\.?\\s?[Mm]\\.?)?)";
+const RE_IOS = new RegExp("^\\[" + DATE + ",?\\s+" + TIME + "\\]\\s?([\\s\\S]*)$");
+const RE_AND = new RegExp("^" + DATE + ",?\\s+" + TIME + "\\s[-–]\\s([\\s\\S]*)$");
+
+// Bekannte Texte für Anhänge in verschiedenen Sprachen
+const ATTACH_PHRASES = /\((?:Datei angehängt|file attached|archivo adjunto|fichier joint|file allegato|arquivo anexado|bestand bijgevoegd|plik załączony|dosya ekli|файл прикреплён|файл прикреплен)\)/i;
+
+function parseChat(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const raw = [];
+  let cur = null, nIos = 0, nAnd = 0;
+  for (const line of lines) {
+    const clean = line.replace(INVISIBLE, "").replace(/[  ]/g, " ");
+    const mi = RE_IOS.exec(clean), m = mi || RE_AND.exec(clean);
+    if (m) {
+      if (mi) nIos++; else nAnd++;
+      // "rest" mit unsichtbaren Zeichen behalten: iOS markiert Systemnachrichten mit U+200E
+      const rawRest = line.replace(/^[\s\S]*?(?:\]\s?|\s[-–]\s)/, "");
+      cur = { d: m[1], t: m[2], rest: m[3], rawRest };
+      raw.push(cur);
+    } else if (cur) {
+      cur.rest += "\n" + line.replace(INVISIBLE, "");
+    }
+  }
+  if (!raw.length) return null;
+
+  // Datumsreihenfolge erkennen (TT.MM. vs. MM/TT)
+  let order = null;
+  for (const r of raw) {
+    const p = r.d.split(/[./-]/).map(Number);
+    if (p[0] > 31) { order = "YMD"; break; }
+    if (p[0] > 12) { order = "DMY"; break; }
+    if (p[1] > 12) { order = "MDY"; break; }
+  }
+  if (!order) order = raw[0].d.includes("/") ? "MDY" : "DMY";
+
+  const msgs = [];
+  for (const r of raw) {
+    const p = r.d.split(/[./-]/).map(Number);
+    let y, mo, d;
+    if (order === "YMD") [y, mo, d] = p;
+    else if (order === "DMY") [d, mo, y] = p;
+    else [mo, d, y] = p;
+    if (y < 100) y += 2000;
+    const tm = /(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?\s*([AaPp])?/.exec(r.t);
+    let hh = +tm[1];
+    const mm = +tm[2], ss = +(tm[3] || 0);
+    if (tm[4]) {
+      const pm = /p/i.test(tm[4]);
+      if (pm && hh < 12) hh += 12;
+      if (!pm && hh === 12) hh = 0;
+    }
+    const date = new Date(y, mo - 1, d, hh, mm, ss);
+
+    let sender = null, body = r.rest, system = false;
+    const idx = r.rest.indexOf(": ");
+    if (idx > 0 && idx < 80 && !r.rest.slice(0, idx).includes("\n")) {
+      sender = r.rest.slice(0, idx).trim();
+      body = r.rest.slice(idx + 2);
+      // iOS: Systemnachrichten stehen als "Gruppenname: ‎Text"
+      const rawBody = r.rawRest.slice(r.rawRest.indexOf(": ") + 2);
+      if (rawBody.startsWith("‎") && !body.startsWith("<") &&
+          !/(weggelassen|omitted|omitido|omis|omesso)\s*$/i.test(body.split("\n")[0])) {
+        system = true;
+      }
+    } else {
+      system = true;
+    }
+    msgs.push({ date, sender, text: body.replace(/\s+$/, ""), system, rawRest: r.rawRest });
+  }
+  msgs.format = nIos > nAnd ? "iOS" : "Android";
+  msgs.order = { DMY: "TT.MM.JJJJ", MDY: "MM/TT/JJJJ", YMD: "JJJJ-MM-TT" }[order];
+  return msgs;
+}
+
+// Erkennt Anhänge. Gibt {file, caption} oder {note} oder null zurück.
+function detectAttachment(text, mediaHas) {
+  const first = text.split("\n")[0].trim();
+  const caption = text.split("\n").slice(1).join("\n").trim();
+  // iOS: <Anhang: 00000012-PHOTO-2021-03-12-14-05-33.jpg>
+  let m = /^<[^<>:]{2,30}:\s*([^<>]+?\.[A-Za-z0-9]{2,5})>$/.exec(first);
+  if (m) return { file: m[1].trim(), caption };
+  // Android: IMG-20210312-WA0001.jpg (Datei angehängt)
+  m = /^(.+?\.[A-Za-z0-9]{2,5})\s+\([^()]+\)$/.exec(first);
+  if (m && (ATTACH_PHRASES.test(first) || mediaHas(m[1].trim()))) return { file: m[1].trim(), caption };
+  // Nur Dateiname in der Zeile, der im Export existiert
+  if (mediaHas(first)) return { file: first, caption };
+  // <Medien ausgeschlossen>, <Media omitted>, "Bild weggelassen" …
+  if (/^<[^<>:]+>$/.test(first) && !caption) return { note: first.slice(1, -1) };
+  if (/^(?:Bild|Video|Audio|Sticker|GIF|Dokument|image|video|audio|sticker|document) (?:weggelassen|omitted)$/i.test(first)) return { note: first };
+  return null;
+}
+
+/* ===================== Hilfsfunktionen ===================== */
+
+const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function formatText(s) {
+  const urls = [];
+  s = s.replace(/\bhttps?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]]/g, u => { urls.push(u); return "\u0000" + (urls.length - 1) + "\u0000"; });
+  s = esc(s);
+  s = s.replace(/```([\s\S]+?)```/g, "<code>$1</code>");
+  s = s.replace(/(^|[\s(])\*(?=\S)([^*\n]*?\S)\*(?=$|[\s.,!?:;)])/g, "$1<b>$2</b>");
+  s = s.replace(/(^|[\s(])_(?=\S)([^_\n]*?\S)_(?=$|[\s.,!?:;)])/g, "$1<i>$2</i>");
+  s = s.replace(/(^|[\s(])~(?=\S)([^~\n]*?\S)~(?=$|[\s.,!?:;)])/g, "$1<s>$2</s>");
+  s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => {
+    const u = esc(urls[+i]);
+    return `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`;
+  });
+  return s;
+}
+
+const MIME = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
+  mp4: "video/mp4", mov: "video/quicktime", "3gp": "video/3gpp", webm: "video/webm", m4v: "video/mp4",
+  opus: "audio/ogg", ogg: "audio/ogg", mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", wav: "audio/wav", amr: "audio/amr",
+  pdf: "application/pdf", vcf: "text/vcard", txt: "text/plain"
+};
+const ext = n => (n.split(".").pop() || "").toLowerCase();
+const kind = n => {
+  const t = MIME[ext(n)] || "";
+  return t.startsWith("image/") ? "img" : t.startsWith("video/") ? "video" : t.startsWith("audio/") ? "audio" : "file";
+};
+const baseName = p => p.split(/[\\/]/).pop();
+
+// Catppuccin-Mocha-Akzente für Namen in Gruppen
+const NAME_COLORS = ["#f5e0dc", "#f5c2e7", "#cba6f7", "#f38ba8", "#eba0ac", "#fab387", "#f9e2af",
+  "#a6e3a1", "#94e2d5", "#89dceb", "#74c7ec", "#89b4fa", "#b4befe", "#f2cdcd"];
+function nameColor(name) {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.codePointAt(0)) >>> 0;
+  return NAME_COLORS[h % NAME_COLORS.length];
+}
+
+const dayFmt = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const timeFmt = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" });
+const dayKey = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+
+/* ===================== Zustand & UI ===================== */
+
+const $ = id => document.getElementById(id);
+const chatEl = $("chat");
+let media = new Map();      // Dateiname -> { get: () => Promise<Blob> }
+let chats = [];             // [{ name, get: () => Promise<string> }]
+let messages = [];
+let senders = [];
+let objectUrls = [];
+let hits = [], hitPos = -1;
+
+function setStatus(msg, err) {
+  const s = $("status");
+  s.textContent = msg || "";
+  s.className = err ? "err" : "";
+}
+
+function addMedia(path, get) {
+  const n = baseName(path);
+  media.set(n, { get });
+  media.set(n.toLowerCase(), { get });
+}
+const mediaHas = n => media.has(n) || media.has(n.toLowerCase());
+const mediaGet = n => media.get(n) || media.get(n.toLowerCase());
+
+async function handleFiles(fileList) {
+  // fileList: Array von { path, file }
+  setStatus("Lese Dateien …");
+  media = new Map(); chats = [];
+  try {
+    for (const { path, file } of fileList) {
+      const lower = path.toLowerCase();
+      if (lower.endsWith(".zip")) {
+        const entries = await readZip(file);
+        for (const e of entries) {
+          if (/(^|\/)__macosx\//i.test(e.path)) continue;
+          if (e.path.toLowerCase().endsWith(".txt")) {
+            chats.push({ name: file.name.replace(/\.zip$/i, "") + " / " + baseName(e.path), size: e.size,
+              get: async () => (await e.get()).text(), blob: () => e.get(), container: file });
+          }
+          addMedia(e.path, async () => { const b = await e.get(); return new Blob([b], { type: MIME[ext(e.path)] || "" }); });
+        }
+      } else {
+        if (lower.endsWith(".txt")) {
+          chats.push({ name: baseName(path), size: file.size, get: () => file.text(), blob: async () => file });
+        }
+        addMedia(path, async () => file);
+      }
+    }
+  } catch (err) {
+    setStatus(err.message, true); return;
+  }
+
+  // Nur echte Chat-Dateien behalten (enthalten Zeitstempel-Zeilen)
+  const valid = [];
+  for (const c of chats) {
+    const text = await c.get();
+    const msgs = parseChat(text);
+    if (msgs && msgs.length) valid.push({ ...c, msgs, text });
+  }
+  if (!valid.length) {
+    setStatus("Keine WhatsApp-Chatdatei (.txt) gefunden oder Format nicht erkannt.", true);
+    return;
+  }
+  valid.sort((a, b) => b.msgs.length - a.msgs.length);
+  chats = valid;
+
+  const sel = $("chatSel");
+  sel.innerHTML = chats.map((c, i) => `<option value="${i}">${esc(c.name)} (${c.msgs.length})</option>`).join("");
+  $("chatSelWrap").classList.toggle("hidden", chats.length < 2);
+  setStatus("");
+  openChat(0);
+}
+
+function chatTitle(name) {
+  const m = /WhatsApp[- ]Chat (?:mit|with|con|avec|com|-) ?(.+?)(?:\.txt| \/ |$)/i.exec(name);
+  if (m) return m[1].trim();
+  // iOS: "_chat.txt" in der ZIP -> Name der ZIP verwenden
+  if (/(^| \/ )_chat\.txt$/i.test(name) && name.includes(" / ")) return name.split(" / ")[0];
+  return name.replace(/\.txt$/i, "").replace(/^.* \/ /, "");
+}
+
+let currentChat = null;
+function openChat(i) {
+  const c = chats[i];
+  currentChat = c; analysis = null;
+  $("panel").classList.add("hidden");
+  messages = c.msgs;
+  const count = new Map();
+  for (const m of messages) if (m.sender && !m.system) count.set(m.sender, (count.get(m.sender) || 0) + 1);
+  senders = [...count.keys()].sort((a, b) => count.get(b) - count.get(a));
+
+  const meSel = $("meSel");
+  meSel.innerHTML = `<option value="">(niemand)</option>` + senders.map(s => `<option>${esc(s)}</option>`).join("");
+  if (senders.length) meSel.value = senders[senders.length > 1 ? 1 : 0];
+
+  $("title").textContent = chatTitle(c.name);
+  document.title = $("title").textContent + " – RE:Chat";
+  $("landing").classList.add("hidden");
+  chatEl.classList.remove("hidden");
+  $("controls").classList.remove("hidden");
+
+  if (messages.length) {
+    $("dateJump").min = dayKey(messages[0].date);
+    $("dateJump").max = dayKey(messages[messages.length - 1].date);
+  }
+  render();
+}
+
+function render() {
+  objectUrls.forEach(URL.revokeObjectURL); objectUrls = [];
+  if (observer) observer.disconnect();
+  const me = $("meSel").value;
+  const group = senders.length > 2;
+  chatEl.classList.toggle("solo", !group);
+
+  const parts = [];
+  let lastDay = null, lastSender = null;
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const dk = dayKey(m.date);
+    if (dk !== lastDay) {
+      if (lastDay) parts.push("</section>");
+      parts.push(`<section class="day" data-day="${dk}"><div class="daylabel"><span>${esc(dayFmt.format(m.date))}</span></div>`);
+      lastDay = dk; lastSender = null;
+    }
+    let time = timeFmt.format(m.date);
+
+    if (m.system) {
+      parts.push(`<div class="msg sys" id="m${i}"><div class="bubble">${formatText(m.text)}</div></div>`);
+      lastSender = null;
+      continue;
+    }
+
+    const cls = ["msg"];
+    if (m.sender === me) cls.push("me");
+    cls.push(m.sender === lastSender ? "cont" : "first");
+    lastSender = m.sender;
+
+    let inner = "";
+    const att = detectAttachment(m.text, mediaHas);
+    if (att && att.file) {
+      inner += `<div class="media" data-f="${esc(att.file)}"></div>`;
+      if (att.caption) inner += formatText(att.caption);
+    } else if (att && att.note) {
+      inner += `<span class="note">${esc(att.note)}</span>`;
+    } else if (RX.deleted.test(m.text.trim())) {
+      inner += `<span class="note">🚫 ${esc(m.text.trim())}</span>`;
+    } else if (RX.edited.test(m.text)) {
+      inner += formatText(m.text.replace(RX.edited, "").trim());
+      time = "bearbeitet · " + time;
+    } else {
+      inner += formatText(m.text);
+    }
+    const hue = nameColor(m.sender);
+    parts.push(
+      `<div class="${cls.join(" ")}" id="m${i}" data-s="${esc(m.sender)}"><div class="bubble">` +
+      `<div class="name" style="color:${hue}">${esc(m.sender)}</div>` +
+      `${inner}<span class="time">${time}</span></div></div>`
+    );
+  }
+  if (lastDay) parts.push("</section>");
+  chatEl.innerHTML = parts.join("");
+
+  observer = new IntersectionObserver(onMediaVisible, { root: chatEl, rootMargin: "1200px 0px" });
+  chatEl.querySelectorAll(".media").forEach(el => observer.observe(el));
+  requestAnimationFrame(() => { chatEl.scrollTop = chatEl.scrollHeight; });
+  runSearch();
+}
+
+let observer = null;
+async function onMediaVisible(entries) {
+  for (const en of entries) {
+    if (!en.isIntersecting) continue;
+    const el = en.target;
+    observer.unobserve(el);
+    const name = el.dataset.f;
+    const entry = mediaGet(name);
+    if (!entry) {
+      el.innerHTML = `<span class="missing">📎 ${esc(name)} (nicht im Export enthalten)</span>`;
+      continue;
+    }
+    try {
+      const blob = await entry.get();
+      const url = URL.createObjectURL(blob);
+      objectUrls.push(url);
+      const k = kind(name);
+      if (k === "img") el.innerHTML = `<img src="${url}" alt="${esc(name)}" loading="lazy">`;
+      else if (k === "video") el.innerHTML = `<video src="${url}" controls preload="metadata"></video>`;
+      else if (k === "audio") el.innerHTML = `<audio src="${url}" controls preload="metadata"></audio>`;
+      else el.innerHTML = `<a class="file" href="${url}" download="${esc(name)}" target="_blank">📄 ${esc(name)}</a>`;
+      // Audioformate, die der Browser nicht abspielen kann, als Download anbieten
+      const media = el.querySelector("audio,video");
+      if (media) media.addEventListener("error", () => {
+        el.innerHTML = `<a class="file" href="${url}" download="${esc(name)}">⬇️ ${esc(name)} (Format im Browser nicht abspielbar)</a>`;
+      });
+    } catch (err) {
+      el.innerHTML = `<span class="missing">📎 ${esc(name)}: ${esc(err.message)}</span>`;
+    }
+  }
+}
+
+/* ===================== Analyse: OSINT & Forensik (alles lokal) ===================== */
+
+let analysis = null;
+let panelTab = "overview";
+
+const RX = {
+  url: /\bhttps?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]'"]/g,
+  email: /(?<![\w.%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}\b/g,
+  phone: /(?<![\w+@\/.-])(?:\+|00)[1-9][\d \-\/().]{6,18}\d(?!\d)|(?<![\w@.,:\/-])0[1-9]\d{1,4}[ \-\/]?\d[\d \-]{4,12}\d(?![\d.:])/g,
+  mention: /@\+?\d{7,15}\b/g,
+  hashtag: /(?<![\w&\/])#[\p{L}\p{N}_]{2,40}/gu,
+  emoji: /\p{Extended_Pictographic}(?:️|[\u{1F3FB}-\u{1F3FF}])?(?:‍\p{Extended_Pictographic}(?:️|[\u{1F3FB}-\u{1F3FF}])?)*/gu,
+  geo: [/[?&](?:q|ll|query|daddr|sll)=(-?\d{1,2}\.\d{3,}),\s?(-?\d{1,3}\.\d{3,})/, /@(-?\d{1,2}\.\d{3,}),(-?\d{1,3}\.\d{3,})/, /\/place\/(-?\d{1,2}\.\d{3,}),(-?\d{1,3}\.\d{3,})/],
+  deleted: /^(?:Diese Nachricht wurde gelöscht|Du hast diese Nachricht gelöscht|This message was deleted|You deleted this message|Se eliminó este mensaje|Eliminaste este mensaje|Ce message a été supprimé|Vous avez supprimé ce message|Questo messaggio è stato eliminato|Hai eliminato questo messaggio|Esta mensagem foi apagada|Você apagou esta mensagem)\.?$/i,
+  edited: /<(?:Diese Nachricht wurde bearbeitet|This message was edited|Se editó este mensaje|Ce message a été modifié|Questo messaggio è stato modificato|Esta mensagem foi editada)>/i,
+};
+
+const STOP = new Set(("aber alle allem allen aller alles also auch auf aus bei beim bin bis bist dann darum das dass dein deine dem den denn der des dich die dies diese diesem diesen dieser dir doch dort durch eine einem einen einer eines euch für gegen habe haben hast hat hatte hier hinter ich ihr ihre ihm ihn immer jetzt kann kannst kein keine man mich mir mit muss nach nicht noch nur oder ohne schon sein seine sich sie sind so über um und uns unter vom von vor war waren warum was weil wenn wer wie wieder wir wird wo zu zum zur ganz gerade halt mal eben echt okay heute morgen gut ja nein danke bitte einfach mehr sehr viel wäre würde hab habt sehen weiß " +
+  "about after again also and any are been but can could did does doing dont from have having her here him his how just like more most not now only other our out over same she should some such than that the their them then there these they this those through too under until very was were what when where which while who why will with would you your yeah okay just really").split(/\s+/));
+
+function analyze() {
+  const msgs = messages;
+  const people = new Map();
+  const P = n => {
+    if (!people.has(n)) people.set(n, { name: n, msgs: 0, words: 0, media: 0, deleted: 0, edited: 0, links: 0,
+      first: null, last: null, hours: new Array(24).fill(0), resp: [], heat: Array.from({ length: 7 }, () => new Array(24).fill(0)) });
+    return people.get(n);
+  };
+  const heat = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  const months = new Map();
+  const days = new Set();
+  const cats = ["url", "domain", "email", "phone", "mention", "geo", "hashtag", "file"];
+  const iocs = Object.fromEntries(cats.map(c => [c, new Map()]));
+  const add = (cat, key, i, extra) => {
+    let e = iocs[cat].get(key);
+    if (!e) { e = { value: key, idx: [], senders: new Set(), ...extra }; iocs[cat].set(key, e); }
+    e.idx.push(i);
+    if (msgs[i].sender && !msgs[i].system) e.senders.add(msgs[i].sender);
+  };
+  const scan = (t, i) => {
+    for (const u of t.match(RX.url) || []) {
+      add("url", u, i);
+      try { add("domain", new URL(u).hostname.replace(/^www\./, "").toLowerCase(), i); } catch {}
+      if (/map|goo\.gl|geo|apple\.com|osm|openstreetmap|here\.com|waze/i.test(u)) {
+        for (const g of RX.geo) {
+          const mm = g.exec(u);
+          if (mm) {
+            const lat = +mm[1], lon = +mm[2];
+            if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) add("geo", lat.toFixed(5) + ", " + lon.toFixed(5), i, { lat, lon });
+            break;
+          }
+        }
+      }
+    }
+    const noUrl = t.replace(RX.url, " ");
+    for (const e of noUrl.match(RX.email) || []) add("email", e.toLowerCase(), i);
+    for (const ph of noUrl.replace(RX.email, " ").match(RX.phone) || []) {
+      let n = ph.trim().replace(/^00/, "+");
+      n = (n.startsWith("+") ? "+" : "") + n.replace(/\D/g, "");
+      const digits = n.replace(/\D/g, "").length;
+      if (digits >= 8 && digits <= 15) add("phone", n, i);
+    }
+    for (const mt of noUrl.match(RX.mention) || []) add("mention", mt, i);
+    for (const h of noUrl.match(RX.hashtag) || []) add("hashtag", h.toLowerCase(), i);
+  };
+
+  const words = new Map(), emojis = new Map();
+  const events = [], deleted = [], edited = [], gaps = [];
+  let prev = null, prevAny = null;
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i], t = m.text;
+    if (prevAny) gaps.push({ i, ms: m.date - prevAny.date });
+    prevAny = m;
+    if (m.system) { events.push(i); scan(t, i); continue; }
+    const p = P(m.sender);
+    p.msgs++;
+    if (!p.first) p.first = m.date;
+    p.last = m.date;
+    const dk = dayKey(m.date);
+    days.add(dk);
+    const mk = dk.slice(0, 7);
+    months.set(mk, (months.get(mk) || 0) + 1);
+    const wd = (m.date.getDay() + 6) % 7, h = m.date.getHours();
+    heat[wd][h]++; p.heat[wd][h]++; p.hours[h]++;
+
+    if (prev && prev.sender !== m.sender) {
+      const d = (m.date - prev.date) / 60000;
+      if (d >= 0 && d < 720) p.resp.push(d);
+    }
+    prev = m;
+
+    const att = detectAttachment(t, mediaHas);
+    if (att) {
+      p.media++;
+      if (att.file) add("file", att.file, i, { kind: kind(att.file) });
+      if (att.caption) scan(att.caption, i);
+      continue;
+    }
+    if (RX.deleted.test(t.trim())) { p.deleted++; deleted.push(i); continue; }
+    if (RX.edited.test(t)) { p.edited++; edited.push(i); }
+    const links = (t.match(RX.url) || []).length;
+    p.links += links;
+    scan(t, i);
+    const clean = t.replace(RX.url, " ").replace(RX.edited, " ");
+    p.words += (clean.match(/\S+/g) || []).length;
+    for (const w of clean.toLowerCase().match(/\p{L}[\p{L}\p{N}'’-]{3,}/gu) || []) {
+      if (!STOP.has(w)) words.set(w, (words.get(w) || 0) + 1);
+    }
+    for (const e of t.match(RX.emoji) || []) emojis.set(e, (emojis.get(e) || 0) + 1);
+  }
+  gaps.sort((a, b) => b.ms - a.ms);
+  const sorted = (map, n) => [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
+  const first = msgs[0]?.date, last = msgs[msgs.length - 1]?.date;
+  return {
+    people: [...people.values()].sort((a, b) => b.msgs - a.msgs),
+    heat, months, days, iocs, events, deleted, edited,
+    gaps: gaps.slice(0, 10), words: sorted(words, 40), emojis: sorted(emojis, 24),
+    first, last, total: msgs.length,
+    userMsgs: [...people.values()].reduce((a, p) => a + p.msgs, 0),
+  };
+}
+
+const median = a => {
+  if (!a.length) return null;
+  const s = [...a].sort((x, y) => x - y), k = s.length >> 1;
+  return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2;
+};
+const fmtDur = min => {
+  if (min == null) return "–";
+  if (min < 1) return Math.round(min * 60) + " s";
+  if (min < 60) return Math.round(min) + " min";
+  if (min < 1440) return (min / 60).toFixed(1).replace(".", ",") + " h";
+  return (min / 1440).toFixed(1).replace(".", ",") + " Tage";
+};
+const nf = new Intl.NumberFormat("de-DE");
+const dtf = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const df = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+async function sha256(blob) {
+  const buf = await blob.arrayBuffer();
+  const h = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function openPanel(tab) {
+  if (!analysis) analysis = analyze();
+  panelTab = tab || panelTab;
+  $("panel").classList.remove("hidden");
+  document.querySelectorAll("#panel .tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === panelTab));
+  renderTab();
+}
+function closePanel() { $("panel").classList.add("hidden"); $("tip").classList.add("hidden"); }
+
+function jumpTo(i) {
+  if (innerWidth < 1100) closePanel();
+  chatEl.querySelectorAll(".msg.hit").forEach(e => e.classList.remove("hit"));
+  const el = $("m" + i);
+  if (!el) return;
+  el.classList.add("hit");
+  el.scrollIntoView({ block: "center" });
+  requestAnimationFrame(() => el.scrollIntoView({ block: "center" }));
+}
+
+function heatHtml(grid) {
+  const max = Math.max(1, ...grid.flat());
+  let h = `<div class="heat"><div class="lab"></div>`;
+  for (let x = 0; x < 24; x++) h += `<div class="lab">${x % 3 === 0 ? x : ""}</div>`;
+  grid.forEach((row, y) => {
+    h += `<div class="lab">${WD[y]}</div>`;
+    row.forEach((v, x) => {
+      const o = v ? (0.15 + 0.85 * Math.sqrt(v / max)).toFixed(2) : 0;
+      h += `<div class="cell${v ? "" : " zero"}" style="${v ? "opacity:" + o : ""}" data-tip="${WD[y]}, ${x}–${x + 1} Uhr\n${nf.format(v)} Nachrichten"></div>`;
+    });
+  });
+  return h + "</div>";
+}
+
+function hbars(rows, unit) {
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  return rows.map(([k, v]) => `<div class="hbar"><span title="${esc(k)}">${esc(k)}</span>` +
+    `<i style="width:${(100 * v / max).toFixed(1)}%" data-tip="${esc(k)}\n${nf.format(v)} ${unit}"></i><span>${nf.format(v)}</span></div>`).join("");
+}
+
+const IOC_LABEL = { url: "Links", domain: "Domains", phone: "Telefonnummern", email: "E-Mail-Adressen", geo: "Standorte",
+  mention: "Erwähnungen", hashtag: "Hashtags", file: "Dateien" };
+let iocCat = "domain", iocFilter = "";
+const jumpPtr = new Map();
+
+function renderTab() {
+  const a = analysis, b = $("pbody"), c = currentChat;
+  let h = "";
+  if (panelTab === "overview") {
+    const spanDays = a.first ? Math.round((a.last - a.first) / 864e5) + 1 : 0;
+    const media = [...a.iocs.file.values()].reduce((s, e) => s + e.idx.length, 0);
+    const tiles = [
+      [nf.format(a.userMsgs), "Nachrichten"], [nf.format(a.people.length), "Personen"],
+      [nf.format(a.days.size) + " / " + nf.format(spanDays), "aktive Tage / Zeitraum"],
+      [(a.userMsgs / Math.max(1, a.days.size)).toFixed(1).replace(".", ","), "Ø pro aktivem Tag"],
+      [nf.format(a.people.reduce((s, p) => s + p.media, 0)), "Medien (" + nf.format(media) + " mit Datei)"],
+      [nf.format(a.iocs.url.size), "verschiedene Links"],
+      [nf.format(a.deleted.length), "gelöschte Nachrichten"], [nf.format(a.edited.length), "bearbeitete Nachrichten"],
+    ];
+    h += `<h3>Übersicht</h3><div class="tiles">${tiles.map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`;
+    h += `<h3>Quelle</h3><table class="t">
+      <tr><th>Datei</th><td>${esc(c.name)}</td></tr>
+      <tr><th>Größe</th><td>${nf.format(c.size || 0)} Bytes</td></tr>
+      <tr><th>Erkanntes Format</th><td>${esc(c.msgs.format || "?")}, Datum ${esc(c.msgs.order || "?")}</td></tr>
+      <tr><th>Erste Nachricht</th><td>${a.first ? dtf.format(a.first) : "–"}</td></tr>
+      <tr><th>Letzte Nachricht</th><td>${a.last ? dtf.format(a.last) : "–"}</td></tr>
+      <tr><th>SHA-256 (Chat-Datei)</th><td class="hash" id="hashTxt">wird berechnet …</td></tr>
+      ${c.container ? `<tr><th>SHA-256 (${esc(c.container.name)})</th><td class="hash" id="hashZip">wird berechnet …</td></tr>` : ""}
+      <tr><th>Analysiert am</th><td>${dtf.format(new Date())}</td></tr></table>
+      <p class="hint">Die Hashwerte belegen, dass die Datei seit der Analyse unverändert ist. Zeitangaben stammen aus dem Export und hängen von der Zeitzone des exportierenden Geräts ab.</p>`;
+    b.innerHTML = h;
+    (async () => {
+      try { $("hashTxt").textContent = await sha256(await c.blob()); } catch (e) { $("hashTxt").textContent = "Fehler: " + e.message; }
+      if (c.container) {
+        const el = $("hashZip");
+        if (c.container.size > 1.5e9) el.textContent = "übersprungen (Datei zu groß für den Browser)";
+        else try { el.textContent = await sha256(c.container); } catch (e) { el.textContent = "Fehler: " + e.message; }
+      }
+    })();
+    return;
+  }
+  if (panelTab === "people") {
+    h += `<h3>Anteil an Nachrichten</h3>` + hbars(a.people.map(p => [p.name, p.msgs]), "Nachrichten");
+    h += `<h3>Profil pro Person</h3><div style="overflow-x:auto"><table class="t"><tr><th>Person</th><th class="n">Nachr.</th><th class="n">Wörter</th><th class="n">Ø Wörter</th><th class="n">Medien</th><th class="n">Links</th><th class="n">gelöscht</th><th class="n">bearb.</th><th class="n">Median Antwort</th><th class="n">aktivste Stunde</th><th>erste</th><th>letzte</th></tr>`;
+    for (const p of a.people) {
+      const top = p.hours.indexOf(Math.max(...p.hours));
+      h += `<tr><td>${esc(p.name)}</td><td class="n">${nf.format(p.msgs)}</td><td class="n">${nf.format(p.words)}</td>
+        <td class="n">${(p.words / Math.max(1, p.msgs - p.media - p.deleted)).toFixed(1).replace(".", ",")}</td>
+        <td class="n">${nf.format(p.media)}</td><td class="n">${nf.format(p.links)}</td><td class="n">${nf.format(p.deleted)}</td><td class="n">${nf.format(p.edited)}</td>
+        <td class="n">${fmtDur(median(p.resp))}</td><td class="n">${top}–${top + 1} Uhr</td>
+        <td>${p.first ? df.format(p.first) : "–"}</td><td>${p.last ? df.format(p.last) : "–"}</td></tr>`;
+    }
+    h += `</table></div><p class="hint">Antwortzeit: Abstand zur vorherigen Nachricht einer anderen Person, nur Abstände unter 12 Stunden. Medien zählen auch ausgeschlossene Medien.</p>`;
+  }
+  if (panelTab === "activity") {
+    const who = b.dataset.who || "";
+    const grid = who ? a.people.find(p => p.name === who)?.heat || a.heat : a.heat;
+    h += `<h3>Wochentag × Uhrzeit</h3><div class="chips" id="whoChips"><button data-who="" aria-pressed="${!who}">Alle</button>` +
+      a.people.map(p => `<button data-who="${esc(p.name)}" aria-pressed="${p.name === who}">${esc(p.name)}</button>`).join("") + `</div>` + heatHtml(grid);
+    const ms = [...a.months.keys()].sort();
+    if (ms.length) {
+      const all = [];
+      let [y, mo] = ms[0].split("-").map(Number);
+      const [ly, lm] = ms[ms.length - 1].split("-").map(Number);
+      while (y < ly || (y === ly && mo <= lm)) {
+        const k = y + "-" + String(mo).padStart(2, "0");
+        all.push([k, a.months.get(k) || 0]);
+        if (++mo > 12) { mo = 1; y++; }
+      }
+      const max = Math.max(1, ...all.map(x => x[1]));
+      h += `<h3>Nachrichten pro Monat</h3><div class="bars">${all.map(([k, v]) =>
+        `<div style="height:${(100 * v / max).toFixed(1)}%" data-tip="${k.slice(5)}/${k.slice(0, 4)}\n${nf.format(v)} Nachrichten"></div>`).join("")}</div>
+        <div class="axis"><span>${all[0][0].slice(5)}/${all[0][0].slice(0, 4)}</span><span>max. ${nf.format(max)}</span><span>${all.at(-1)[0].slice(5)}/${all.at(-1)[0].slice(0, 4)}</span></div>`;
+    }
+    h += `<h3>Längste Pausen</h3><table class="t"><tr><th>Pause</th><th>von</th><th>bis</th></tr>` +
+      a.gaps.map(g => `<tr class="jump" data-i="${g.i}"><td>${fmtDur(g.ms / 60000)}</td><td>${dtf.format(messages[g.i - 1].date)}</td><td>${dtf.format(messages[g.i].date)}</td></tr>`).join("") +
+      `</table><p class="hint">Klick springt zur ersten Nachricht nach der Pause.</p>`;
+  }
+  if (panelTab === "ioc") {
+    h += `<h3>Indikatoren aus dem Chat</h3><p class="hint">Automatisch aus dem Text extrahiert. Telefonnummern und E-Mails werden per Muster erkannt, es kann Fehltreffer geben. Klick auf eine Zeile springt zum nächsten Vorkommen.</p>
+      <div class="chips" id="iocChips">${Object.keys(IOC_LABEL).map(k =>
+        `<button data-cat="${k}" aria-pressed="${k === iocCat}">${IOC_LABEL[k]} (${nf.format(a.iocs[k].size)})</button>`).join("")}</div>
+      <div class="filterrow"><input type="search" id="iocFilter" placeholder="Filtern …" value="${esc(iocFilter)}" style="flex:1"></div><div id="iocTable"></div>`;
+    b.innerHTML = h;
+    renderIocTable();
+    return;
+  }
+  if (panelTab === "words") {
+    h += `<h3>Häufigste Wörter</h3><p class="hint">Ab vier Buchstaben, ohne häufige Füllwörter (Deutsch, Englisch).</p>` + hbars(a.words, "mal");
+    h += `<h3>Häufigste Emojis</h3>` + hbars(a.emojis, "mal");
+  }
+  if (panelTab === "events") {
+    const list = (title, arr, hint) => `<h3>${title} (${nf.format(arr.length)})</h3>${hint ? `<p class="hint">${hint}</p>` : ""}<table class="t"><tr><th>Zeit</th><th>Person</th><th>Text</th></tr>` +
+      arr.slice(0, 2000).map(i => { const m = messages[i]; return `<tr class="jump" data-i="${i}"><td>${dtf.format(m.date)}</td><td>${esc(m.system ? "System" : m.sender)}</td><td>${esc(m.text.slice(0, 200))}</td></tr>`; }).join("") + `</table>`;
+    h += list("Systemereignisse", a.events, "Beitritte, Austritte, Nummernwechsel, Namens- und Gruppenänderungen, Verschlüsselungshinweise.");
+    h += list("Gelöschte Nachrichten", a.deleted);
+    h += list("Bearbeitete Nachrichten", a.edited, "Der Export enthält nur die letzte Fassung.");
+  }
+  if (panelTab === "export") {
+    h += `<h3>Export</h3><p class="hint">Die Dateien werden im Browser erzeugt und direkt heruntergeladen.</p>
+      <div class="filterrow">
+        <button data-exp="msgs-csv">Nachrichten (CSV)</button>
+        <button data-exp="msgs-json">Nachrichten (JSON)</button>
+        <button data-exp="ioc-csv">Indikatoren (CSV)</button>
+        <button data-exp="report">Bericht (JSON)</button>
+      </div>
+      <p class="hint">Der Bericht enthält Quelle, SHA-256, Statistiken pro Person, alle Indikatoren mit Fundstellen sowie gelöschte, bearbeitete und Systemnachrichten.</p>`;
+  }
+  b.innerHTML = h;
+}
+
+function renderIocTable() {
+  const a = analysis;
+  const q = iocFilter.toLowerCase();
+  const rows = [...a.iocs[iocCat].values()].filter(e => !q || e.value.toLowerCase().includes(q) || [...e.senders].some(s => s.toLowerCase().includes(q)))
+    .sort((x, y) => y.idx.length - x.idx.length);
+  let h = `<table class="t"><tr><th>Wert</th><th class="n">Anzahl</th><th>erstmals</th><th>zuletzt</th><th>von</th>${iocCat === "geo" ? "<th></th>" : ""}</tr>`;
+  for (const e of rows.slice(0, 1500)) {
+    const f = messages[e.idx[0]].date, l = messages[e.idx.at(-1)].date;
+    h += `<tr class="jump" data-ioc="${esc(e.value)}"><td class="v">${esc(e.value)}</td><td class="n">${nf.format(e.idx.length)}</td>
+      <td>${df.format(f)}</td><td>${df.format(l)}</td><td>${esc([...e.senders].join(", "))}</td>
+      ${iocCat === "geo" ? `<td><a href="https://www.openstreetmap.org/?mlat=${e.lat}&mlon=${e.lon}#map=16/${e.lat}/${e.lon}" target="_blank" rel="noopener noreferrer" title="Öffnet openstreetmap.org (extern)">Karte ↗</a></td>` : ""}</tr>`;
+  }
+  if (!rows.length) h += `<tr><td colspan="6" style="color:var(--muted)">Nichts gefunden.</td></tr>`;
+  h += `</table>`;
+  if (rows.length > 1500) h += `<p class="hint">${nf.format(rows.length - 1500)} weitere, bitte filtern oder exportieren.</p>`;
+  if (iocCat === "geo") h += `<p class="hint">„Karte“ öffnet openstreetmap.org in einem neuen Tab. Das ist der einzige Weg, auf dem RE:Chat etwas nach außen gibt, und passiert nur auf deinen Klick.</p>`;
+  $("iocTable").innerHTML = h;
+}
+
+/* ----- Export ----- */
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+const csvCell = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+const csv = rows => "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+const iso = d => {
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+function msgType(m) {
+  if (m.system) return "system";
+  const att = detectAttachment(m.text, mediaHas);
+  if (att?.file) return "media";
+  if (att?.note) return "media_omitted";
+  if (RX.deleted.test(m.text.trim())) return "deleted";
+  return RX.edited.test(m.text) ? "edited" : "text";
+}
+const baseFile = () => chatTitle(currentChat.name).replace(/[^\p{L}\p{N}_-]+/gu, "_");
+
+async function doExport(kindName) {
+  const a = analysis;
+  if (kindName === "msgs-csv") {
+    download(baseFile() + "_nachrichten.csv", csv([["nr", "zeit_lokal", "person", "typ", "text", "anhang"],
+      ...messages.map((m, i) => [i + 1, iso(m.date), m.system ? "" : m.sender, msgType(m), m.text, detectAttachment(m.text, mediaHas)?.file || ""])]), "text/csv");
+  } else if (kindName === "msgs-json") {
+    download(baseFile() + "_nachrichten.json", JSON.stringify(messages.map((m, i) => ({ nr: i + 1, zeit_lokal: iso(m.date),
+      person: m.system ? null : m.sender, typ: msgType(m), text: m.text, anhang: detectAttachment(m.text, mediaHas)?.file || null })), null, 2), "application/json");
+  } else if (kindName === "ioc-csv") {
+    const rows = [["kategorie", "wert", "anzahl", "erstmals", "zuletzt", "personen", "nachrichten_nr"]];
+    for (const [cat, map] of Object.entries(a.iocs)) for (const e of map.values())
+      rows.push([cat, e.value, e.idx.length, iso(messages[e.idx[0]].date), iso(messages[e.idx.at(-1)].date), [...e.senders].join("; "), e.idx.map(i => i + 1).join(" ")]);
+    download(baseFile() + "_indikatoren.csv", csv(rows), "text/csv");
+  } else if (kindName === "report") {
+    const c = currentChat;
+    const report = {
+      werkzeug: "RE:Chat", erstellt: new Date().toISOString(),
+      quelle: { datei: c.name, bytes: c.size, sha256: await sha256(await c.blob()),
+        container: c.container ? { datei: c.container.name, bytes: c.container.size, sha256: c.container.size > 1.5e9 ? null : await sha256(c.container) } : null,
+        format: c.msgs.format, datumsreihenfolge: c.msgs.order, hinweis: "Zeitangaben in lokaler Zeit des exportierenden Geräts" },
+      zeitraum: { erste: a.first && iso(a.first), letzte: a.last && iso(a.last), aktive_tage: a.days.size },
+      personen: a.people.map(p => ({ name: p.name, nachrichten: p.msgs, woerter: p.words, medien: p.media, links: p.links,
+        geloescht: p.deleted, bearbeitet: p.edited, median_antwort_min: median(p.resp), erste: iso(p.first), letzte: iso(p.last), stunden: p.hours })),
+      indikatoren: Object.fromEntries(Object.entries(a.iocs).map(([k, map]) => [k, [...map.values()].map(e => ({ wert: e.value, anzahl: e.idx.length,
+        personen: [...e.senders], nachrichten_nr: e.idx.map(i => i + 1), ...(e.lat != null ? { lat: e.lat, lon: e.lon } : {}) }))])),
+      geloescht: a.deleted.map(i => ({ nr: i + 1, zeit: iso(messages[i].date), person: messages[i].sender })),
+      bearbeitet: a.edited.map(i => ({ nr: i + 1, zeit: iso(messages[i].date), person: messages[i].sender, text: messages[i].text })),
+      systemereignisse: a.events.map(i => ({ nr: i + 1, zeit: iso(messages[i].date), text: messages[i].text })),
+    };
+    download(baseFile() + "_bericht.json", JSON.stringify(report, null, 2), "application/json");
+  }
+}
+
+/* ----- Ereignisse im Panel ----- */
+$("openPanel").onclick = () => openPanel();
+$("closePanel").onclick = closePanel;
+document.querySelectorAll("#panel .tabs button").forEach(btn => btn.onclick = () => openPanel(btn.dataset.tab));
+$("pbody").addEventListener("click", e => {
+  const who = e.target.closest("#whoChips button");
+  if (who) { $("pbody").dataset.who = who.dataset.who; renderTab(); return; }
+  const cat = e.target.closest("#iocChips button");
+  if (cat) {
+    iocCat = cat.dataset.cat;
+    document.querySelectorAll("#iocChips button").forEach(b => b.setAttribute("aria-pressed", b === cat));
+    renderIocTable(); return;
+  }
+  const exp = e.target.closest("[data-exp]");
+  if (exp) { doExport(exp.dataset.exp); return; }
+  if (e.target.closest("a")) return;
+  const row = e.target.closest("tr.jump");
+  if (!row) return;
+  if (row.dataset.i) return jumpTo(+row.dataset.i);
+  const entry = analysis.iocs[iocCat].get(row.dataset.ioc);
+  if (!entry) return;
+  const k = iocCat + "|" + entry.value;
+  const n = jumpPtr.has(k) ? (jumpPtr.get(k) + 1) % entry.idx.length : 0;
+  jumpPtr.set(k, n);
+  jumpTo(entry.idx[n]);
+});
+$("pbody").addEventListener("input", e => {
+  if (e.target.id === "iocFilter") { iocFilter = e.target.value; renderIocTable(); }
+});
+const tip = $("tip");
+$("pbody").addEventListener("mousemove", e => {
+  const t = e.target.closest("[data-tip]");
+  if (!t) { tip.classList.add("hidden"); return; }
+  tip.textContent = t.dataset.tip;
+  tip.classList.remove("hidden");
+  const w = tip.offsetWidth;
+  tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 12) + "px";
+  tip.style.top = (e.clientY - 40) + "px";
+});
+$("pbody").addEventListener("mouseleave", () => tip.classList.add("hidden"));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("lightbox")) closePanel(); });
+
+/* ===================== Suche & Navigation ===================== */
+
+function runSearch() {
+  chatEl.querySelectorAll(".msg.hit").forEach(e => e.classList.remove("hit"));
+  const q = $("search").value.trim().toLowerCase();
+  hits = []; hitPos = -1;
+  if (!q) { $("hitCount").textContent = ""; return; }
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.text.toLowerCase().includes(q) || (m.sender && m.sender.toLowerCase().includes(q))) hits.push(i);
+  }
+  $("hitCount").textContent = hits.length ? `0/${hits.length}` : "0 Treffer";
+  if (hits.length) gotoHit(hits.length - 1);
+}
+
+function gotoHit(pos) {
+  if (!hits.length) return;
+  hitPos = (pos + hits.length) % hits.length;
+  chatEl.querySelectorAll(".msg.hit").forEach(e => e.classList.remove("hit"));
+  const el = $("m" + hits[hitPos]);
+  if (el) {
+    el.classList.add("hit");
+    el.scrollIntoView({ block: "center" });
+    // content-visibility kann die Position verschieben, daher kurz nachjustieren
+    requestAnimationFrame(() => el.scrollIntoView({ block: "center" }));
+  }
+  $("hitCount").textContent = `${hitPos + 1}/${hits.length}`;
+}
+
+let searchTimer;
+$("search").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 250); });
+$("search").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); gotoHit(e.shiftKey ? hitPos + 1 : hitPos - 1); }
+});
+$("prevHit").onclick = () => gotoHit(hitPos - 1);
+$("nextHit").onclick = () => gotoHit(hitPos + 1);
+
+$("dateJump").addEventListener("change", e => {
+  const v = e.target.value;
+  if (!v) return;
+  const secs = [...chatEl.querySelectorAll(".day")];
+  const target = secs.find(s => s.dataset.day >= v) || secs[secs.length - 1];
+  if (target) { target.scrollIntoView({ block: "start" }); requestAnimationFrame(() => target.scrollIntoView({ block: "start" })); }
+});
+
+$("meSel").addEventListener("change", e => {
+  const me = e.target.value;
+  chatEl.querySelectorAll(".msg[data-s]").forEach(el => el.classList.toggle("me", el.dataset.s === me));
+});
+
+$("chatSel").addEventListener("change", e => openChat(+e.target.value));
+$("reset").onclick = () => location.reload();
+
+chatEl.addEventListener("click", e => {
+  const img = e.target.closest(".media img");
+  if (!img) return;
+  const lb = document.createElement("div");
+  lb.id = "lightbox";
+  lb.innerHTML = `<img src="${img.src}" alt="">`;
+  lb.onclick = () => lb.remove();
+  document.body.appendChild(lb);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("lightbox")?.remove(); });
+
+/* ===================== Datei-Eingabe & Drag-and-Drop ===================== */
+
+$("pickFiles").onclick = () => $("fileInput").click();
+$("pickDir").onclick = () => $("dirInput").click();
+$("fileInput").onchange = e => handleFiles([...e.target.files].map(f => ({ path: f.name, file: f })));
+$("dirInput").onchange = e => handleFiles([...e.target.files].map(f => ({ path: f.webkitRelativePath || f.name, file: f })));
+
+async function readEntry(entry, path, out) {
+  if (entry.isFile) {
+    const file = await new Promise((res, rej) => entry.file(res, rej));
+    out.push({ path: path + file.name, file });
+  } else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    let batch;
+    do {
+      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+      for (const child of batch) await readEntry(child, path + entry.name + "/", out);
+    } while (batch.length);
+  }
+}
+
+const dz = $("dropzone");
+["dragenter", "dragover"].forEach(t => document.addEventListener(t, e => {
+  e.preventDefault(); dz.classList.add("over"); chatEl.classList.add("dragover");
+}));
+["dragleave", "drop"].forEach(t => document.addEventListener(t, e => {
+  e.preventDefault(); dz.classList.remove("over"); chatEl.classList.remove("dragover");
+}));
+document.addEventListener("drop", async e => {
+  const items = [...(e.dataTransfer.items || [])];
+  const out = [];
+  if (items.length && items[0].webkitGetAsEntry) {
+    const entries = items.map(it => it.webkitGetAsEntry()).filter(Boolean);
+    for (const en of entries) await readEntry(en, "", out);
+  } else {
+    for (const f of e.dataTransfer.files) out.push({ path: f.name, file: f });
+  }
+  if (out.length) {
+    $("landing").classList.remove("hidden");
+    chatEl.classList.add("hidden");
+    handleFiles(out);
+  }
+});
+
+if (typeof DecompressionStream === "undefined") {
+  setStatus("Hinweis: Dein Browser kann keine ZIP-Dateien entpacken. Bitte .txt oder entpackten Ordner verwenden.", true);
+}
+</script>
+</body>
+</html>

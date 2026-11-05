@@ -1,0 +1,14 @@
+12.03.21, 14:05 - Nachrichten und Anrufe sind Ende-zu-Ende-verschlüsselt. Niemand außerhalb dieses Chats kann sie lesen.
+12.03.21, 14:05 - Anna: Hallo *Welt*, schau mal https://example.org/a_b_c
+12.03.21, 14:06 - Ben: Hi!
+zweite Zeile
+12.03.21, 14:07 - Ben: IMG-20210312-WA0001.png (Datei angehängt)
+Bildunterschrift
+13.03.21, 09:00 - Anna: <Medien ausgeschlossen>
+13.03.21, 09:01 - Anna: PTT-20210313-WA0002.opus (Datei angehängt)
+13.03.21, 09:30 - Ben: Ruf mich an: 0151 23456789 oder +49 30 1234567, Mail an test.person@example.com
+13.03.21, 09:31 - Anna: Standort: https://maps.google.com/?q=52.520008,13.404954
+14.03.21, 18:00 - Ben: Diese Nachricht wurde gelöscht
+14.03.21, 18:01 - Anna: Treffen am 14.03.2021 um 18:30 <Diese Nachricht wurde bearbeitet>
+02.05.21, 10:00 - Ben hat die Telefonnummer gewechselt.
+02.05.21, 10:05 - Anna: Wieder da 😀😀 #urlaub @4915112345678

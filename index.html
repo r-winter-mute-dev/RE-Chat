@@ -7,9 +7,9 @@
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#121212">
-<meta name="description" content="RE:Chat – exportierte WhatsApp-Chats wieder als scrollbaren Chat lesen. Läuft komplett lokal im Browser.">
+<meta name="description" content="RE:Chat – OSINT- und Forensik-Werkzeug für WhatsApp-Exporte. Läuft komplett lokal im Browser.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M12 8h40a8 8 0 0 1 8 8v24a8 8 0 0 1-8 8H28L14 58V48h-2a8 8 0 0 1-8-8V16a8 8 0 0 1 8-8z' fill='%23a6e3a1'/%3E%3C/svg%3E">
-<title>RE:Chat</title>
+<title>RE:Chat – OSINT & Forensik für Chat-Exporte</title>
 <style>
   /* Darkmode, Akzente: Catppuccin Mocha (MIT) */
   :root {
@@ -107,13 +107,13 @@
 
   /* ===== Analyse-Panel ===== */
   #panel {
-    position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); z-index: 15;
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(820px, 100%); z-index: 15;
     background: var(--bg); border-left: 1px solid var(--border); display: flex; flex-direction: column;
     box-shadow: -8px 0 24px rgba(0,0,0,.5);
   }
   #panel .phead { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   #panel .phead h2 { font-size: 15px; margin: 0 10px 0 0; }
-  #panel .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  #panel .tabs { display: flex; gap: 4px; flex-wrap: wrap; order: 3; width: 100%; }
   #panel .tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   #pbody { overflow-y: auto; padding: 14px 16px 40px; flex: 1; }
   #pbody h3 { font-size: 14px; margin: 22px 0 8px; }
@@ -151,6 +151,23 @@
   .chips button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   .hash { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
 
+  .bubble .mark {
+    position: absolute; top: 2px; right: -26px; border: none; background: none; padding: 2px 4px;
+    color: var(--muted); opacity: 0; cursor: pointer; font-size: 14px;
+  }
+  .msg.me .bubble .mark { right: auto; left: -26px; }
+  .msg:hover .mark, .mark:focus-visible { opacity: 1; }
+  .msg.marked .mark { opacity: 1; color: var(--hit); }
+  .msg.marked .bubble { box-shadow: inset 3px 0 0 var(--hit), 0 1px 1px rgba(0,0,0,.4); }
+  .tag { font-size: 11px; font-weight: 600; letter-spacing: .5px; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; }
+  .form { display: grid; grid-template-columns: 140px 1fr; gap: 6px 10px; align-items: center; font-size: 13px; }
+  .form label { color: var(--muted); }
+  .form textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; min-height: 70px; resize: vertical; }
+  .sev-a { color: #f38ba8; font-weight: 600; }
+  .sev-h { color: #f9e2af; font-weight: 600; }
+  .muted { color: var(--muted); }
+  .progress { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
   #lightbox {
     position: fixed; inset: 0; background: rgba(0,0,0,.88); display: flex;
     align-items: center; justify-content: center; z-index: 20; cursor: zoom-out;
@@ -162,7 +179,7 @@
 <body>
 
 <header>
-  <h1><span class="re">RE:</span>Chat <span id="title" style="font-weight:400;color:var(--muted)"></span></h1>
+  <h1><span class="re">RE:</span>Chat<span class="tag">OSINT · FORENSIK</span> <span id="title" style="font-weight:400;color:var(--muted)"></span></h1>
   <div class="grow"></div>
   <span id="controls" class="hidden" style="display:contents">
     <label class="inline hidden" id="chatSelWrap">Chat
@@ -180,7 +197,7 @@
       <button id="nextHit" title="Nächster Treffer">▼</button>
       <span id="hitCount"></span>
     </span>
-    <button id="openPanel" title="Statistik, Indikatoren, Export">🔍 Analyse</button>
+    <button id="openPanel" title="Fallakte, Analyse, Indikatoren, Bericht">🔎 Forensik</button>
     <button id="reset" title="Anderen Chat laden">Neu laden</button>
   </span>
 </header>
@@ -188,14 +205,14 @@
 <div id="landing">
   <div id="dropzone">
     <h2><span class="re" style="color:var(--accent)">RE:</span>Chat</h2>
-    <p style="margin-top:-8px">Exportierte WhatsApp-Chats wieder lesen, so wie sie damals aussahen.</p>
+    <p style="margin-top:-8px">OSINT- und Forensik-Werkzeug für WhatsApp-Exporte.<br>Verlauf rekonstruieren, Spuren auswerten, Ergebnisse dokumentieren.</p>
     <p>Zieh die exportierte <b>.txt</b>, die <b>.zip</b> oder den ganzen <b>Ordner</b> hierher.</p>
     <div class="btns">
       <button id="pickFiles">Datei(en) wählen (.txt / .zip)</button>
       <button id="pickDir">Ordner wählen</button>
     </div>
     <div id="status"></div>
-    <p style="font-size:12px;margin-bottom:0">Alles läuft lokal in deinem Browser. Nichts wird hochgeladen, nichts wird gespeichert.<br>Kein offizielles Produkt, nicht mit WhatsApp oder Meta verbunden.</p>
+    <p style="font-size:12px;margin-bottom:0">Alles läuft lokal im Browser. Nichts wird hochgeladen, nichts wird gespeichert.<br>Nur für Chats verwenden, an denen du beteiligt bist oder für die eine Berechtigung besteht.<br>Kein offizielles Produkt, nicht mit WhatsApp oder Meta verbunden. <span id="ver"></span></p>
   </div>
 </div>
 
@@ -203,18 +220,22 @@
 
 <aside id="panel" class="hidden" aria-label="Analyse">
   <div class="phead">
-    <h2>Analyse</h2>
+    <h2>Forensik</h2>
     <div class="tabs" role="tablist">
-      <button role="tab" data-tab="overview">Übersicht</button>
+      <button role="tab" data-tab="case">Fall</button>
       <button role="tab" data-tab="people">Personen</button>
       <button role="tab" data-tab="activity">Aktivität</button>
       <button role="tab" data-tab="ioc">Indikatoren</button>
-      <button role="tab" data-tab="words">Wörter</button>
+      <button role="tab" data-tab="media">Medien</button>
+      <button role="tab" data-tab="anomalies">Anomalien</button>
+      <button role="tab" data-tab="marks">Markierungen</button>
       <button role="tab" data-tab="events">Ereignisse</button>
-      <button role="tab" data-tab="export">Export</button>
+      <button role="tab" data-tab="words">Wörter</button>
+      <button role="tab" data-tab="evidence">Asservate</button>
+      <button role="tab" data-tab="report">Bericht</button>
     </div>
     <div class="grow"></div>
-    <button id="closePanel" title="Schließen (Esc)">✕</button>
+    <button id="closePanel" title="Schließen (Esc)" style="margin-left:auto">✕</button>
   </div>
   <div id="pbody"></div>
 </aside>
@@ -268,23 +289,27 @@ async function readZip(file) {
     const clen = cd.getUint16(p + 32, true);
     let off = cd.getUint32(p + 42, true);
     const name = dec.decode(new Uint8Array(cd.buffer, p + 46, nlen));
-    if (csize === 0xffffffff || usize === 0xffffffff || off === 0xffffffff) {
-      let q = p + 46 + nlen; const end = q + xlen;
-      while (q + 4 <= end) {
-        const id = cd.getUint16(q, true), sz = cd.getUint16(q + 2, true);
-        if (id === 1) {
-          let r = q + 4;
-          if (usize === 0xffffffff) { usize = Number(cd.getBigUint64(r, true)); r += 8; }
-          if (csize === 0xffffffff) { csize = Number(cd.getBigUint64(r, true)); r += 8; }
-          if (off === 0xffffffff) { off = Number(cd.getBigUint64(r, true)); }
-        }
-        q += 4 + sz;
+    // DOS-Zeitstempel (lokale Zeit des packenden Geräts, 2-Sekunden-Raster)
+    const dt = cd.getUint16(p + 12, true), dd = cd.getUint16(p + 14, true);
+    const mtime = [1980 + (dd >> 9), (dd >> 5) & 15, dd & 31, dt >> 11, (dt >> 5) & 63, (dt & 31) * 2];
+    let mtimeUtc = null;
+    let q = p + 46 + nlen; const end = q + xlen;
+    while (q + 4 <= end) {
+      const id = cd.getUint16(q, true), sz = cd.getUint16(q + 2, true);
+      if (id === 1) {
+        let r = q + 4;
+        if (usize === 0xffffffff) { usize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (csize === 0xffffffff) { csize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (off === 0xffffffff) { off = Number(cd.getBigUint64(r, true)); }
+      } else if (id === 0x5455 && sz >= 5 && (cd.getUint8(q + 4) & 1)) {
+        mtimeUtc = new Date(cd.getUint32(q + 5, true) * 1000); // Extended Timestamp, UTC
       }
+      q += 4 + sz;
     }
     p += 46 + nlen + xlen + clen;
     if (name.endsWith("/")) continue;
     const entry = { method, csize, off };
-    out.push({ path: name, size: usize, get: () => zipExtract(file, entry) });
+    out.push({ path: name, size: usize, csize, method, mtime, mtimeUtc, get: () => zipExtract(file, entry) });
   }
   return out;
 }
@@ -315,17 +340,21 @@ function parseChat(text) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const raw = [];
   let cur = null, nIos = 0, nAnd = 0;
-  for (const line of lines) {
+  const preamble = [];
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
     const clean = line.replace(INVISIBLE, "").replace(/[  ]/g, " ");
     const mi = RE_IOS.exec(clean), m = mi || RE_AND.exec(clean);
     if (m) {
       if (mi) nIos++; else nAnd++;
       // "rest" mit unsichtbaren Zeichen behalten: iOS markiert Systemnachrichten mit U+200E
       const rawRest = line.replace(/^[\s\S]*?(?:\]\s?|\s[-–]\s)/, "");
-      cur = { d: m[1], t: m[2], rest: m[3], rawRest };
+      cur = { d: m[1], t: m[2], rest: m[3], rawRest, line: li + 1, rawLine: line };
       raw.push(cur);
     } else if (cur) {
       cur.rest += "\n" + line.replace(INVISIBLE, "");
+    } else if (line.trim()) {
+      preamble.push({ line: li + 1, text: line });
     }
   }
   if (!raw.length) return null;
@@ -372,9 +401,12 @@ function parseChat(text) {
     } else {
       system = true;
     }
-    msgs.push({ date, sender, text: body.replace(/\s+$/, ""), system, rawRest: r.rawRest });
+    msgs.push({ date, wall: [y, mo, d, hh, mm, ss], line: r.line, rawTime: r.d + " " + r.t,
+      sender, text: body.replace(/\s+$/, ""), system, rawRest: r.rawRest });
   }
   msgs.format = nIos > nAnd ? "iOS" : "Android";
+  msgs.preamble = preamble;
+  msgs.lines = lines.length;
   msgs.order = { DMY: "TT.MM.JJJJ", MDY: "MM/TT/JJJJ", YMD: "JJJJ-MM-TT" }[order];
   return msgs;
 }
@@ -452,6 +484,7 @@ let messages = [];
 let senders = [];
 let objectUrls = [];
 let hits = [], hitPos = -1;
+let evidence = [];          // Asservatenliste: alle eingelesenen Dateien
 
 function setStatus(msg, err) {
   const s = $("status");
@@ -470,23 +503,30 @@ const mediaGet = n => media.get(n) || media.get(n.toLowerCase());
 async function handleFiles(fileList) {
   // fileList: Array von { path, file }
   setStatus("Lese Dateien …");
-  media = new Map(); chats = [];
+  media = new Map(); chats = []; evidence = []; hashCache.clear(); exifCache.clear();
   try {
     for (const { path, file } of fileList) {
       const lower = path.toLowerCase();
       if (lower.endsWith(".zip")) {
         const entries = await readZip(file);
+        const cont = { path, name: file.name, size: file.size, fsTime: new Date(file.lastModified), container: true, get: async () => file };
+        evidence.push(cont);
         for (const e of entries) {
           if (/(^|\/)__macosx\//i.test(e.path)) continue;
+          const ev = { path: path + "/" + e.path, name: baseName(e.path), size: e.size, csize: e.csize, method: e.method,
+            zipTime: e.mtime, zipTimeUtc: e.mtimeUtc, parent: cont, get: e.get };
+          evidence.push(ev);
           if (e.path.toLowerCase().endsWith(".txt")) {
             chats.push({ name: file.name.replace(/\.zip$/i, "") + " / " + baseName(e.path), size: e.size,
-              get: async () => (await e.get()).text(), blob: () => e.get(), container: file });
+              get: async () => (await e.get()).text(), blob: () => e.get(), container: file, ev, cont });
           }
           addMedia(e.path, async () => { const b = await e.get(); return new Blob([b], { type: MIME[ext(e.path)] || "" }); });
         }
       } else {
+        const ev = { path, name: baseName(path), size: file.size, fsTime: new Date(file.lastModified), get: async () => file };
+        evidence.push(ev);
         if (lower.endsWith(".txt")) {
-          chats.push({ name: baseName(path), size: file.size, get: () => file.text(), blob: async () => file });
+          chats.push({ name: baseName(path), size: file.size, get: () => file.text(), blob: async () => file, ev });
         }
         addMedia(path, async () => file);
       }
@@ -527,7 +567,7 @@ function chatTitle(name) {
 let currentChat = null;
 function openChat(i) {
   const c = chats[i];
-  currentChat = c; analysis = null;
+  currentChat = c; analysis = null; marks.clear();
   $("panel").classList.add("hidden");
   messages = c.msgs;
   const count = new Map();
@@ -577,6 +617,7 @@ function render() {
     }
 
     const cls = ["msg"];
+    if (marks.has(i)) cls.push("marked");
     if (m.sender === me) cls.push("me");
     cls.push(m.sender === lastSender ? "cont" : "first");
     lastSender = m.sender;
@@ -600,7 +641,8 @@ function render() {
     parts.push(
       `<div class="${cls.join(" ")}" id="m${i}" data-s="${esc(m.sender)}"><div class="bubble">` +
       `<div class="name" style="color:${hue}">${esc(m.sender)}</div>` +
-      `${inner}<span class="time">${time}</span></div></div>`
+      `${inner}<span class="time">${time}</span>` +
+      `<button class="mark" data-mark="${i}" title="Als relevant markieren">${marks.has(i) ? "★" : "☆"}</button></div></div>`
     );
   }
   if (lastDay) parts.push("</section>");
@@ -644,10 +686,16 @@ async function onMediaVisible(entries) {
   }
 }
 
-/* ===================== Analyse: OSINT & Forensik (alles lokal) ===================== */
+/* ===================== Forensik & OSINT (alles lokal) ===================== */
 
+const VERSION = "0.2.0";
 let analysis = null;
-let panelTab = "overview";
+let panelTab = "case";
+const caseInfo = { id: "", examiner: "", notes: "" };
+let tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } })();
+const marks = new Map();       // Nachrichtenindex -> Notiz
+const hashCache = new Map();   // Asservat-Pfad -> { md5, sha1, sha256 }
+const exifCache = new Map();   // Dateiname -> EXIF-Objekt | null
 
 const RX = {
   url: /\bhttps?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]'"]/g,
@@ -656,14 +704,175 @@ const RX = {
   mention: /@\+?\d{7,15}\b/g,
   hashtag: /(?<![\w&\/])#[\p{L}\p{N}_]{2,40}/gu,
   emoji: /\p{Extended_Pictographic}(?:️|[\u{1F3FB}-\u{1F3FF}])?(?:‍\p{Extended_Pictographic}(?:️|[\u{1F3FB}-\u{1F3FF}])?)*/gu,
+  iban: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g,
+  crypto: /\b(?:bc1[ac-hj-np-z02-9]{25,62}|[13][a-km-zA-HJ-NP-Z1-9]{25,34}|0x[a-fA-F0-9]{40})\b/g,
+  ip: /\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b/g,
   geo: [/[?&](?:q|ll|query|daddr|sll)=(-?\d{1,2}\.\d{3,}),\s?(-?\d{1,3}\.\d{3,})/, /@(-?\d{1,2}\.\d{3,}),(-?\d{1,3}\.\d{3,})/, /\/place\/(-?\d{1,2}\.\d{3,}),(-?\d{1,3}\.\d{3,})/],
   deleted: /^(?:Diese Nachricht wurde gelöscht|Du hast diese Nachricht gelöscht|This message was deleted|You deleted this message|Se eliminó este mensaje|Eliminaste este mensaje|Ce message a été supprimé|Vous avez supprimé ce message|Questo messaggio è stato eliminato|Hai eliminato questo messaggio|Esta mensagem foi apagada|Você apagou esta mensagem)\.?$/i,
   edited: /<(?:Diese Nachricht wurde bearbeitet|This message was edited|Se editó este mensaje|Ce message a été modifié|Questo messaggio è stato modificato|Esta mensagem foi editada)>/i,
+  phoneSender: /^\+?[\d\s\-()]{7,20}$/,
 };
+
+// IBAN-Prüfsumme (ISO 13616, Modulo 97) gegen Fehltreffer
+function ibanValid(raw) {
+  const s = raw.replace(/\s/g, "");
+  if (s.length < 15 || s.length > 34) return false;
+  const r = (s.slice(4) + s.slice(0, 4)).replace(/[A-Z]/g, c => c.charCodeAt(0) - 55);
+  let mod = 0;
+  for (const ch of r) mod = (mod * 10 + +ch) % 97;
+  return mod === 1;
+}
 
 const STOP = new Set(("aber alle allem allen aller alles also auch auf aus bei beim bin bis bist dann darum das dass dein deine dem den denn der des dich die dies diese diesem diesen dieser dir doch dort durch eine einem einen einer eines euch für gegen habe haben hast hat hatte hier hinter ich ihr ihre ihm ihn immer jetzt kann kannst kein keine man mich mir mit muss nach nicht noch nur oder ohne schon sein seine sich sie sind so über um und uns unter vom von vor war waren warum was weil wenn wer wie wieder wir wird wo zu zum zur ganz gerade halt mal eben echt okay heute morgen gut ja nein danke bitte einfach mehr sehr viel wäre würde hab habt sehen weiß " +
   "about after again also and any are been but can could did does doing dont from have having her here him his how just like more most not now only other our out over same she should some such than that the their them then there these they this those through too under until very was were what when where which while who why will with would you your yeah okay just really").split(/\s+/));
 
+/* ----- Zeit: Wanduhrzeit des Exports -> UTC ----- */
+function tzOffsetMin(ms, zone) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit",
+    day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000) / 60000;
+}
+function wallToUtc(w, zone = tz) {
+  const wall = Date.UTC(w[0], w[1] - 1, w[2], w[3], w[4], w[5]);
+  let g = wall - tzOffsetMin(wall, zone) * 60000;
+  g = wall - tzOffsetMin(g, zone) * 60000;
+  return new Date(g);
+}
+const pad2 = n => String(n).padStart(2, "0");
+const wallIso = w => `${w[0]}-${pad2(w[1])}-${pad2(w[2])}T${pad2(w[3])}:${pad2(w[4])}:${pad2(w[5])}`;
+function offsetStr(w, zone = tz) {
+  const o = Math.round(tzOffsetMin(wallToUtc(w, zone).getTime(), zone));
+  return (o < 0 ? "-" : "+") + pad2(Math.floor(Math.abs(o) / 60)) + ":" + pad2(Math.abs(o) % 60);
+}
+const msgLocal = m => wallIso(m.wall) + offsetStr(m.wall);
+const msgUtc = m => wallToUtc(m.wall).toISOString().replace(".000Z", "Z");
+const utcStr = d => d ? d.toISOString().replace(".000Z", "Z") : "";
+const dateWall = d => [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()];
+
+/* ----- Prüfsummen: MD5 (eigene Umsetzung), SHA-1, SHA-256 (Web Crypto) ----- */
+const MD5K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 2 ** 32) >>> 0);
+const MD5S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+function md5(buffer) {
+  const b = new Uint8Array(buffer), L = b.length, M = new Uint32Array(16);
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  const block = (src, off) => {
+    for (let i = 0; i < 16; i++) { const j = off + i * 4; M[i] = src[j] | (src[j + 1] << 8) | (src[j + 2] << 16) | (src[j + 3] << 24); }
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16) { F = (B & C) | (~B & D); g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) & 15; }
+      else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) & 15; }
+      else { F = C ^ (B | ~D); g = (7 * i) & 15; }
+      F = (F + A + MD5K[i] + M[g]) | 0;
+      A = D; D = C; C = B;
+      const sh = MD5S[(i >> 4) * 4 + (i & 3)];
+      B = (B + ((F << sh) | (F >>> (32 - sh)))) | 0;
+    }
+    a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+  };
+  const full = L - (L % 64);
+  for (let off = 0; off < full; off += 64) block(b, off);
+  const tail = new Uint8Array(L % 64 < 56 ? 64 : 128);
+  tail.set(b.subarray(full));
+  tail[L - full] = 0x80;
+  const lo = (L * 8) >>> 0, hi = Math.floor(L / 2 ** 29) >>> 0, t = tail.length;
+  for (let k = 0; k < 4; k++) { tail[t - 8 + k] = (lo >>> (8 * k)) & 255; tail[t - 4 + k] = (hi >>> (8 * k)) & 255; }
+  for (let off = 0; off < t; off += 64) block(tail, off);
+  return [a0, b0, c0, d0].map(x => [0, 8, 16, 24].map(sh => ((x >>> sh) & 255).toString(16).padStart(2, "0")).join("")).join("");
+}
+const hex = buf => [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, "0")).join("");
+const MAX_HASH = 1.5e9;
+async function hashBlob(blob) {
+  if (blob.size > MAX_HASH) throw new Error("zu groß für den Browser (> 1,5 GB)");
+  const buf = await blob.arrayBuffer();
+  const [s1, s256] = await Promise.all([crypto.subtle.digest("SHA-1", buf), crypto.subtle.digest("SHA-256", buf)]);
+  return { md5: md5(buf), sha1: hex(s1), sha256: hex(s256) };
+}
+async function hashEvidence(ev) {
+  if (!hashCache.has(ev.path)) hashCache.set(ev.path, await hashBlob(await ev.get()));
+  return hashCache.get(ev.path);
+}
+
+/* ----- EXIF aus JPEG lesen (Kamera, Zeit, Software, GPS) ----- */
+async function readExif(blob) {
+  const buf = await blob.slice(0, 512 * 1024).arrayBuffer();
+  const v = new DataView(buf);
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xffd8) return null;
+  let off = 2;
+  while (off + 10 < v.byteLength) {
+    const marker = v.getUint16(off), size = v.getUint16(off + 2);
+    if ((marker & 0xff00) !== 0xff00) break;
+    if (marker === 0xffe1 && v.getUint32(off + 4) === 0x45786966) return parseTiff(v, off + 10);
+    if (marker === 0xffda) break;
+    off += 2 + size;
+  }
+  return null;
+}
+function parseTiff(v, t) {
+  const le = v.getUint16(t) === 0x4949;
+  const u16 = o => v.getUint16(t + o, le), u32 = o => v.getUint32(t + o, le), i32 = o => v.getInt32(t + o, le);
+  const SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };
+  const TAGS = { 0x010f: "make", 0x0110: "model", 0x0131: "software", 0x0132: "modified", 0x9003: "taken", 0x9004: "digitized",
+    0x9010: "offsetTime", 0x9011: "offsetOriginal", 0xa002: "width", 0xa003: "height", 0xa420: "imageId", 0xa434: "lens",
+    0x013b: "artist", 0x8298: "copyright", 0x8769: "_exif", 0x8825: "_gps" };
+  const GPS = { 1: "latRef", 2: "lat", 3: "lonRef", 4: "lon", 6: "alt", 7: "time", 29: "date" };
+  const val = (type, cnt, o) => {
+    if (type === 2) { let s = ""; for (let k = 0; k < cnt; k++) { const c = v.getUint8(t + o + k); if (!c) break; s += String.fromCharCode(c); } return s.trim(); }
+    const arr = [];
+    for (let k = 0; k < Math.min(cnt, 8); k++) {
+      const q = o + k * SIZE[type];
+      if (type === 3) arr.push(u16(q));
+      else if (type === 4) arr.push(u32(q));
+      else if (type === 9) arr.push(i32(q));
+      else if (type === 5) arr.push(u32(q) / (u32(q + 4) || 1));
+      else if (type === 10) arr.push(i32(q) / (i32(q + 4) || 1));
+      else arr.push(v.getUint8(t + q));
+    }
+    return cnt === 1 ? arr[0] : arr;
+  };
+  const ifd = (o, map, dst) => {
+    const n = u16(o);
+    for (let k = 0; k < n && k < 400; k++) {
+      const e = o + 2 + k * 12, tag = u16(e), type = u16(e + 2), cnt = u32(e + 4), name = map[tag];
+      if (!name || !SIZE[type]) continue;
+      try { dst[name] = val(type, cnt, SIZE[type] * cnt <= 4 ? e + 8 : u32(e + 8)); } catch {}
+    }
+  };
+  const out = {};
+  try {
+    ifd(u32(4), TAGS, out);
+    if (out._exif) ifd(out._exif, TAGS, out);
+    if (out._gps) {
+      const g = {};
+      ifd(out._gps, GPS, g);
+      const dms = a => Array.isArray(a) ? a[0] + (a[1] || 0) / 60 + (a[2] || 0) / 3600 : a;
+      if (g.lat != null && g.lon != null) {
+        out.lat = +(dms(g.lat) * (g.latRef === "S" ? -1 : 1)).toFixed(6);
+        out.lon = +(dms(g.lon) * (g.lonRef === "W" ? -1 : 1)).toFixed(6);
+        if (g.alt != null) out.alt = Math.round(g.alt);
+      }
+    }
+  } catch {}
+  delete out._exif; delete out._gps;
+  return Object.keys(out).length ? out : null;
+}
+const exifSummary = x => !x ? "" : [
+  [x.make, x.model].filter(Boolean).join(" "), x.lens, x.taken && "Aufnahme " + x.taken + (x.offsetOriginal || ""),
+  x.software && "Software " + x.software, x.width && x.height && x.width + "×" + x.height,
+  x.lat != null && `GPS ${x.lat}, ${x.lon}${x.alt != null ? " (" + x.alt + " m)" : ""}`, x.artist && "Autor " + x.artist,
+].filter(Boolean).join(" · ");
+
+/* ----- Datum aus WhatsApp-Dateinamen ----- */
+function nameDate(n) {
+  let m = /(?:IMG|VID|AUD|PTT|STK|DOC)-(\d{4})(\d{2})(\d{2})-WA\d+/i.exec(n);
+  if (m) return { day: [+m[1], +m[2], +m[3]] };
+  m = /^\d+-[A-Z]+-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})/.exec(n);
+  if (m) return { wall: m.slice(1).map(Number) };
+  return null;
+}
+
+/* ----- Analyse ----- */
 function analyze() {
   const msgs = messages;
   const people = new Map();
@@ -673,15 +882,16 @@ function analyze() {
     return people.get(n);
   };
   const heat = Array.from({ length: 7 }, () => new Array(24).fill(0));
-  const months = new Map();
-  const days = new Set();
-  const cats = ["url", "domain", "email", "phone", "mention", "geo", "hashtag", "file"];
+  const months = new Map(), days = new Set();
+  const cats = ["url", "domain", "phone", "email", "geo", "mention", "hashtag", "iban", "crypto", "ip", "file"];
   const iocs = Object.fromEntries(cats.map(c => [c, new Map()]));
   const add = (cat, key, i, extra) => {
     let e = iocs[cat].get(key);
-    if (!e) { e = { value: key, idx: [], senders: new Set(), ...extra }; iocs[cat].set(key, e); }
-    e.idx.push(i);
+    if (!e) { e = { value: key, idx: [], senders: new Set(), sources: new Set(), ...extra }; iocs[cat].set(key, e); }
+    if (!e.idx.includes(i)) e.idx.push(i);
     if (msgs[i].sender && !msgs[i].system) e.senders.add(msgs[i].sender);
+    if (extra && extra.source) e.sources.add(extra.source);
+    return e;
   };
   const scan = (t, i) => {
     for (const u of t.match(RX.url) || []) {
@@ -692,7 +902,7 @@ function analyze() {
           const mm = g.exec(u);
           if (mm) {
             const lat = +mm[1], lon = +mm[2];
-            if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) add("geo", lat.toFixed(5) + ", " + lon.toFixed(5), i, { lat, lon });
+            if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) add("geo", lat.toFixed(5) + ", " + lon.toFixed(5), i, { lat, lon, source: "Link" });
             break;
           }
         }
@@ -700,32 +910,52 @@ function analyze() {
     }
     const noUrl = t.replace(RX.url, " ");
     for (const e of noUrl.match(RX.email) || []) add("email", e.toLowerCase(), i);
-    for (const ph of noUrl.replace(RX.email, " ").match(RX.phone) || []) {
+    const noMail = noUrl.replace(RX.email, " ");
+    for (const ib of noMail.match(RX.iban) || []) if (ibanValid(ib)) add("iban", ib.replace(/\s/g, ""), i);
+    for (const c of noMail.match(RX.crypto) || []) add("crypto", c, i);
+    for (const ip of noMail.match(RX.ip) || []) add("ip", ip, i);
+    for (const ph of noMail.replace(RX.iban, " ").replace(RX.ip, " ").match(RX.phone) || []) {
       let n = ph.trim().replace(/^00/, "+");
       n = (n.startsWith("+") ? "+" : "") + n.replace(/\D/g, "");
       const digits = n.replace(/\D/g, "").length;
-      if (digits >= 8 && digits <= 15) add("phone", n, i);
+      if (digits >= 8 && digits <= 15) add("phone", n, i, { source: "Text" });
     }
     for (const mt of noUrl.match(RX.mention) || []) add("mention", mt, i);
     for (const h of noUrl.match(RX.hashtag) || []) add("hashtag", h.toLowerCase(), i);
   };
 
   const words = new Map(), emojis = new Map();
-  const events = [], deleted = [], edited = [], gaps = [];
-  let prev = null, prevAny = null;
+  const events = [], deleted = [], edited = [], gaps = [], anomalies = [];
+  const A = (sev, type, detail, i, line) => anomalies.push({ sev, type, detail, i, line: line ?? (i != null ? msgs[i].line : null) });
+
+  for (const pr of msgs.preamble || []) A("hinweis", "Zeile ohne Zeitstempel vor der ersten Nachricht", pr.text.slice(0, 160), null, pr.line);
+
+  let prev = null, prevAny = null, prevUser = null;
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i], t = m.text;
-    if (prevAny) gaps.push({ i, ms: m.date - prevAny.date });
+    if (prevAny) {
+      gaps.push({ i, ms: m.date - prevAny.date });
+      if (m.date < prevAny.date) A("auffällig", "Zeitstempel rückläufig",
+        `${prevAny.rawTime} (Zeile ${prevAny.line}) → ${m.rawTime}. Mögliche Ursachen: Uhr des Geräts verstellt, Zeitzonenwechsel, nachträglich bearbeitete Datei.`, i);
+    }
     prevAny = m;
     if (m.system) { events.push(i); scan(t, i); continue; }
+
+    if (prevUser && prevUser.sender === m.sender && prevUser.text === t && +prevUser.date === +m.date)
+      A("hinweis", "Doppelte Nachricht", `Gleicher Text, gleiche Person, gleiche Minute wie Zeile ${prevUser.line}`, i);
+    prevUser = m;
+
     const p = P(m.sender);
     p.msgs++;
     if (!p.first) p.first = m.date;
     p.last = m.date;
+    if (RX.phoneSender.test(m.sender)) {
+      const n = (m.sender.trim().startsWith("+") ? "+" : "") + m.sender.replace(/\D/g, "");
+      add("phone", n, i, { source: "Absender ohne Kontaktnamen" });
+    }
     const dk = dayKey(m.date);
     days.add(dk);
-    const mk = dk.slice(0, 7);
-    months.set(mk, (months.get(mk) || 0) + 1);
+    months.set(dk.slice(0, 7), (months.get(dk.slice(0, 7)) || 0) + 1);
     const wd = (m.date.getDay() + 6) % 7, h = m.date.getHours();
     heat[wd][h]++; p.heat[wd][h]++; p.hours[h]++;
 
@@ -738,30 +968,50 @@ function analyze() {
     const att = detectAttachment(t, mediaHas);
     if (att) {
       p.media++;
-      if (att.file) add("file", att.file, i, { kind: kind(att.file) });
+      if (att.file) {
+        add("file", att.file, i, { kind: kind(att.file) });
+        const nd = nameDate(att.file);
+        if (nd && nd.day) {
+          const diff = Math.round((Date.UTC(nd.day[0], nd.day[1] - 1, nd.day[2]) - Date.UTC(m.wall[0], m.wall[1] - 1, m.wall[2])) / 864e5);
+          if (Math.abs(diff) > 1) A("hinweis", "Datum im Dateinamen weicht ab", `${att.file}: Dateiname ${nd.day[0]}-${pad2(nd.day[1])}-${pad2(nd.day[2])}, Nachricht ${m.rawTime} (${diff > 0 ? "+" : ""}${diff} Tage). Kann bei weitergeleiteten oder später gespeicherten Dateien normal sein.`, i);
+        } else if (nd && nd.wall) {
+          const diff = (Date.UTC(...[nd.wall[0], nd.wall[1] - 1, ...nd.wall.slice(2)]) - Date.UTC(m.wall[0], m.wall[1] - 1, ...m.wall.slice(2))) / 60000;
+          if (Math.abs(diff) > 2) A("auffällig", "Zeit im Dateinamen weicht ab", `${att.file}: Dateiname ${wallIso(nd.wall)}, Nachricht ${wallIso(m.wall)} (${Math.round(diff)} min)`, i);
+        }
+      }
       if (att.caption) scan(att.caption, i);
       continue;
     }
     if (RX.deleted.test(t.trim())) { p.deleted++; deleted.push(i); continue; }
     if (RX.edited.test(t)) { p.edited++; edited.push(i); }
-    const links = (t.match(RX.url) || []).length;
-    p.links += links;
+    p.links += (t.match(RX.url) || []).length;
     scan(t, i);
     const clean = t.replace(RX.url, " ").replace(RX.edited, " ");
     p.words += (clean.match(/\S+/g) || []).length;
-    for (const w of clean.toLowerCase().match(/\p{L}[\p{L}\p{N}'’-]{3,}/gu) || []) {
-      if (!STOP.has(w)) words.set(w, (words.get(w) || 0) + 1);
-    }
+    for (const w of clean.toLowerCase().match(/\p{L}[\p{L}\p{N}'’-]{3,}/gu) || []) if (!STOP.has(w)) words.set(w, (words.get(w) || 0) + 1);
     for (const e of t.match(RX.emoji) || []) emojis.set(e, (emojis.get(e) || 0) + 1);
   }
+
+  // Medien: referenziert, aber fehlend / vorhanden, aber nicht referenziert
+  const exportHasMedia = evidence.some(e => !e.container && !/\.txt$/i.test(e.name));
+  const missing = [...iocs.file.values()].filter(e => !mediaHas(e.value));
+  if (exportHasMedia) for (const e of missing) A("hinweis", "Anhang fehlt im Export", e.value, e.idx[0]);
+  else if (missing.length) A("hinweis", "Export ohne Medien", `${nf.format(missing.length)} Anhänge werden im Chat erwähnt, aber keine Mediendatei liegt vor.`, null, null);
+  const refd = new Set([...iocs.file.keys()].map(k => k.toLowerCase()));
+  const chatEv = currentChat.ev;
+  for (const ev of evidence) {
+    if (ev.container || ev === chatEv || /\.txt$/i.test(ev.name)) continue;
+    if (chatEv?.parent && ev.parent !== chatEv.parent) continue;
+    if (!refd.has(ev.name.toLowerCase())) A("hinweis", "Datei ohne Bezug im Chat", `${ev.path} (${nf.format(ev.size)} Bytes)`, null, null);
+  }
+
   gaps.sort((a, b) => b.ms - a.ms);
   const sorted = (map, n) => [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
-  const first = msgs[0]?.date, last = msgs[msgs.length - 1]?.date;
   return {
-    people: [...people.values()].sort((a, b) => b.msgs - a.msgs),
-    heat, months, days, iocs, events, deleted, edited,
+    people: [...people.values()].sort((a, b) => b.msgs - a.msgs), add,
+    heat, months, days, iocs, events, deleted, edited, anomalies,
     gaps: gaps.slice(0, 10), words: sorted(words, 40), emojis: sorted(emojis, 24),
-    first, last, total: msgs.length,
+    first: msgs[0], last: msgs[msgs.length - 1], total: msgs.length,
     userMsgs: [...people.values()].reduce((a, p) => a + p.msgs, 0),
   };
 }
@@ -782,13 +1032,17 @@ const nf = new Intl.NumberFormat("de-DE");
 const dtf = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const df = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const fmtWall = w => w ? `${pad2(w[2])}.${pad2(w[1])}.${w[0]} ${pad2(w[3])}:${pad2(w[4])}:${pad2(w[5])}` : "–";
 
-async function sha256(blob) {
-  const buf = await blob.arrayBuffer();
-  const h = await crypto.subtle.digest("SHA-256", buf);
-  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join("");
+/* ----- Markierungen ----- */
+function toggleMark(i) {
+  if (marks.has(i)) marks.delete(i); else marks.set(i, "");
+  const el = $("m" + i);
+  if (el) { el.classList.toggle("marked", marks.has(i)); const b = el.querySelector(".mark"); if (b) b.textContent = marks.has(i) ? "★" : "☆"; }
+  if (!$("panel").classList.contains("hidden") && panelTab === "marks") renderTab();
 }
 
+/* ----- Panel ----- */
 function openPanel(tab) {
   if (!analysis) analysis = analyze();
   panelTab = tab || panelTab;
@@ -799,6 +1053,7 @@ function openPanel(tab) {
 function closePanel() { $("panel").classList.add("hidden"); $("tip").classList.add("hidden"); }
 
 function jumpTo(i) {
+  if (i == null) return;
   if (innerWidth < 1100) closePanel();
   chatEl.querySelectorAll(".msg.hit").forEach(e => e.classList.remove("hit"));
   const el = $("m" + i);
@@ -821,51 +1076,58 @@ function heatHtml(grid) {
   });
   return h + "</div>";
 }
-
 function hbars(rows, unit) {
   const max = Math.max(1, ...rows.map(r => r[1]));
   return rows.map(([k, v]) => `<div class="hbar"><span title="${esc(k)}">${esc(k)}</span>` +
     `<i style="width:${(100 * v / max).toFixed(1)}%" data-tip="${esc(k)}\n${nf.format(v)} ${unit}"></i><span>${nf.format(v)}</span></div>`).join("");
 }
+const hashRows = (label, h) => h ? `<tr><th>${label}</th><td class="hash">MD5 ${h.md5}<br>SHA-1 ${h.sha1}<br>SHA-256 ${h.sha256}</td></tr>` : "";
 
-const IOC_LABEL = { url: "Links", domain: "Domains", phone: "Telefonnummern", email: "E-Mail-Adressen", geo: "Standorte",
-  mention: "Erwähnungen", hashtag: "Hashtags", file: "Dateien" };
+const IOC_LABEL = { domain: "Domains", url: "Links", phone: "Telefonnummern", email: "E-Mail-Adressen", geo: "Standorte",
+  mention: "Erwähnungen", hashtag: "Hashtags", iban: "IBAN", crypto: "Krypto-Adressen", ip: "IP-Adressen", file: "Dateien" };
 let iocCat = "domain", iocFilter = "";
 const jumpPtr = new Map();
 
 function renderTab() {
   const a = analysis, b = $("pbody"), c = currentChat;
   let h = "";
-  if (panelTab === "overview") {
-    const spanDays = a.first ? Math.round((a.last - a.first) / 864e5) + 1 : 0;
-    const media = [...a.iocs.file.values()].reduce((s, e) => s + e.idx.length, 0);
+  if (panelTab === "case") {
+    let zones = [tz];
+    try { zones = Intl.supportedValuesOf("timeZone"); if (!zones.includes(tz)) zones.unshift(tz); } catch {}
+    const spanDays = a.first ? Math.round((a.last.date - a.first.date) / 864e5) + 1 : 0;
+    h += `<h3>Fallakte</h3><div class="form">
+      <label for="cId">Fall / Aktenzeichen</label><input id="cId" value="${esc(caseInfo.id)}" autocomplete="off">
+      <label for="cEx">Bearbeitet von</label><input id="cEx" value="${esc(caseInfo.examiner)}" autocomplete="off">
+      <label for="cTz">Zeitzone des Exportgeräts</label><select id="cTz">${zones.map(z => `<option ${z === tz ? "selected" : ""}>${esc(z)}</option>`).join("")}</select>
+      <label for="cNo">Notizen</label><textarea id="cNo">${esc(caseInfo.notes)}</textarea></div>
+      <p class="hint">Die Angaben landen nur im Bericht und werden nicht gespeichert. Die Zeitzone legt fest, wie die Zeiten des Exports in UTC umgerechnet werden. Sie muss zum Gerät passen, auf dem exportiert wurde.</p>`;
     const tiles = [
       [nf.format(a.userMsgs), "Nachrichten"], [nf.format(a.people.length), "Personen"],
       [nf.format(a.days.size) + " / " + nf.format(spanDays), "aktive Tage / Zeitraum"],
-      [(a.userMsgs / Math.max(1, a.days.size)).toFixed(1).replace(".", ","), "Ø pro aktivem Tag"],
-      [nf.format(a.people.reduce((s, p) => s + p.media, 0)), "Medien (" + nf.format(media) + " mit Datei)"],
-      [nf.format(a.iocs.url.size), "verschiedene Links"],
-      [nf.format(a.deleted.length), "gelöschte Nachrichten"], [nf.format(a.edited.length), "bearbeitete Nachrichten"],
+      [nf.format(a.people.reduce((s, p) => s + p.media, 0)), "Medien"],
+      [nf.format(Object.entries(a.iocs).filter(([k]) => k !== "file").reduce((s, [, m]) => s + m.size, 0)), "Indikatoren"],
+      [nf.format(a.anomalies.length), "Anomalien"], [nf.format(a.deleted.length), "gelöscht"], [nf.format(marks.size), "markiert"],
     ];
-    h += `<h3>Übersicht</h3><div class="tiles">${tiles.map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`;
-    h += `<h3>Quelle</h3><table class="t">
-      <tr><th>Datei</th><td>${esc(c.name)}</td></tr>
-      <tr><th>Größe</th><td>${nf.format(c.size || 0)} Bytes</td></tr>
-      <tr><th>Erkanntes Format</th><td>${esc(c.msgs.format || "?")}, Datum ${esc(c.msgs.order || "?")}</td></tr>
-      <tr><th>Erste Nachricht</th><td>${a.first ? dtf.format(a.first) : "–"}</td></tr>
-      <tr><th>Letzte Nachricht</th><td>${a.last ? dtf.format(a.last) : "–"}</td></tr>
-      <tr><th>SHA-256 (Chat-Datei)</th><td class="hash" id="hashTxt">wird berechnet …</td></tr>
-      ${c.container ? `<tr><th>SHA-256 (${esc(c.container.name)})</th><td class="hash" id="hashZip">wird berechnet …</td></tr>` : ""}
-      <tr><th>Analysiert am</th><td>${dtf.format(new Date())}</td></tr></table>
-      <p class="hint">Die Hashwerte belegen, dass die Datei seit der Analyse unverändert ist. Zeitangaben stammen aus dem Export und hängen von der Zeitzone des exportierenden Geräts ab.</p>`;
+    h += `<h3>Überblick</h3><div class="tiles">${tiles.map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("")}</div>`;
+    const ev = c.ev, cont = c.ev?.parent;
+    h += `<h3>Asservat</h3><table class="t">
+      <tr><th>Chat-Datei</th><td>${esc(ev?.path || c.name)}</td></tr>
+      <tr><th>Größe</th><td>${nf.format(c.size || 0)} Bytes, ${nf.format(c.msgs.lines)} Zeilen</td></tr>
+      <tr><th>Erkanntes Format</th><td>${esc(c.msgs.format)}, Datum ${esc(c.msgs.order)}</td></tr>
+      <tr><th>Erste Nachricht</th><td>${fmtWall(a.first?.wall)} (Export) · ${a.first ? msgUtc(a.first) : ""}</td></tr>
+      <tr><th>Letzte Nachricht</th><td>${fmtWall(a.last?.wall)} (Export) · ${a.last ? msgUtc(a.last) : ""}</td></tr>
+      ${ev?.zipTime ? `<tr><th>Zeitstempel in der ZIP</th><td>${fmtWall(ev.zipTime)} (lokal)${ev.zipTimeUtc ? " · " + utcStr(ev.zipTimeUtc) : ""}</td></tr>` : ""}
+      ${ev?.fsTime ? `<tr><th>Datei geändert</th><td>${utcStr(ev.fsTime)} (Dateisystem dieses Rechners)</td></tr>` : ""}
+      <tbody id="hashRows"><tr><th>Prüfsummen</th><td class="muted">werden berechnet …</td></tr></tbody>
+      ${cont ? `<tr><th>Container</th><td>${esc(cont.name)}, ${nf.format(cont.size)} Bytes, geändert ${utcStr(cont.fsTime)}</td></tr>` : ""}
+      <tr><th>Werkzeug</th><td>RE:Chat ${VERSION}</td></tr></table>
+      <p class="hint">MD5 und SHA-1 sind nur zum Abgleich mit anderen Werkzeugen dabei. Für den Nachweis zählt SHA-256. Ein Export ist kein forensisches Abbild des Geräts: Die Prüfsummen belegen, dass die Datei seit der Sicherung unverändert ist, nicht dass der Inhalt echt ist.</p>`;
     b.innerHTML = h;
     (async () => {
-      try { $("hashTxt").textContent = await sha256(await c.blob()); } catch (e) { $("hashTxt").textContent = "Fehler: " + e.message; }
-      if (c.container) {
-        const el = $("hashZip");
-        if (c.container.size > 1.5e9) el.textContent = "übersprungen (Datei zu groß für den Browser)";
-        else try { el.textContent = await sha256(c.container); } catch (e) { el.textContent = "Fehler: " + e.message; }
-      }
+      let rows = "";
+      try { if (ev) rows += hashRows("Prüfsummen Chat-Datei", await hashEvidence(ev)); } catch (e) { rows += `<tr><th>Prüfsummen</th><td>${esc(e.message)}</td></tr>`; }
+      try { if (cont) rows += hashRows("Prüfsummen Container", await hashEvidence(cont)); } catch (e) { rows += `<tr><th>Container</th><td>${esc(e.message)}</td></tr>`; }
+      const el = $("hashRows"); if (el) el.innerHTML = rows;
     })();
     return;
   }
@@ -878,36 +1140,38 @@ function renderTab() {
         <td class="n">${(p.words / Math.max(1, p.msgs - p.media - p.deleted)).toFixed(1).replace(".", ",")}</td>
         <td class="n">${nf.format(p.media)}</td><td class="n">${nf.format(p.links)}</td><td class="n">${nf.format(p.deleted)}</td><td class="n">${nf.format(p.edited)}</td>
         <td class="n">${fmtDur(median(p.resp))}</td><td class="n">${top}–${top + 1} Uhr</td>
-        <td>${p.first ? df.format(p.first) : "–"}</td><td>${p.last ? df.format(p.last) : "–"}</td></tr>`;
+        <td>${df.format(p.first)}</td><td>${df.format(p.last)}</td></tr>`;
     }
-    h += `</table></div><p class="hint">Antwortzeit: Abstand zur vorherigen Nachricht einer anderen Person, nur Abstände unter 12 Stunden. Medien zählen auch ausgeschlossene Medien.</p>`;
+    h += `</table></div><p class="hint">Antwortzeit: Abstand zur vorherigen Nachricht einer anderen Person, nur Abstände unter 12 Stunden. Absender, die als Telefonnummer erscheinen (kein gespeicherter Kontakt), stehen zusätzlich unter Indikatoren.</p>`;
   }
   if (panelTab === "activity") {
     const who = b.dataset.who || "";
     const grid = who ? a.people.find(p => p.name === who)?.heat || a.heat : a.heat;
     h += `<h3>Wochentag × Uhrzeit</h3><div class="chips" id="whoChips"><button data-who="" aria-pressed="${!who}">Alle</button>` +
-      a.people.map(p => `<button data-who="${esc(p.name)}" aria-pressed="${p.name === who}">${esc(p.name)}</button>`).join("") + `</div>` + heatHtml(grid);
+      a.people.map(p => `<button data-who="${esc(p.name)}" aria-pressed="${p.name === who}">${esc(p.name)}</button>`).join("") + `</div>` + heatHtml(grid) +
+      `<p class="hint">Uhrzeiten wie im Export, also in der Zeitzone des Exportgeräts.</p>`;
     const ms = [...a.months.keys()].sort();
     if (ms.length) {
       const all = [];
       let [y, mo] = ms[0].split("-").map(Number);
       const [ly, lm] = ms[ms.length - 1].split("-").map(Number);
       while (y < ly || (y === ly && mo <= lm)) {
-        const k = y + "-" + String(mo).padStart(2, "0");
+        const k = y + "-" + pad2(mo);
         all.push([k, a.months.get(k) || 0]);
         if (++mo > 12) { mo = 1; y++; }
       }
       const max = Math.max(1, ...all.map(x => x[1]));
+      const lab = k => k.slice(5) + "/" + k.slice(0, 4);
       h += `<h3>Nachrichten pro Monat</h3><div class="bars">${all.map(([k, v]) =>
-        `<div style="height:${(100 * v / max).toFixed(1)}%" data-tip="${k.slice(5)}/${k.slice(0, 4)}\n${nf.format(v)} Nachrichten"></div>`).join("")}</div>
-        <div class="axis"><span>${all[0][0].slice(5)}/${all[0][0].slice(0, 4)}</span><span>max. ${nf.format(max)}</span><span>${all.at(-1)[0].slice(5)}/${all.at(-1)[0].slice(0, 4)}</span></div>`;
+        `<div style="height:${(100 * v / max).toFixed(1)}%" data-tip="${lab(k)}\n${nf.format(v)} Nachrichten"></div>`).join("")}</div>
+        <div class="axis"><span>${lab(all[0][0])}</span><span>max. ${nf.format(max)}</span><span>${lab(all.at(-1)[0])}</span></div>`;
     }
     h += `<h3>Längste Pausen</h3><table class="t"><tr><th>Pause</th><th>von</th><th>bis</th></tr>` +
       a.gaps.map(g => `<tr class="jump" data-i="${g.i}"><td>${fmtDur(g.ms / 60000)}</td><td>${dtf.format(messages[g.i - 1].date)}</td><td>${dtf.format(messages[g.i].date)}</td></tr>`).join("") +
       `</table><p class="hint">Klick springt zur ersten Nachricht nach der Pause.</p>`;
   }
   if (panelTab === "ioc") {
-    h += `<h3>Indikatoren aus dem Chat</h3><p class="hint">Automatisch aus dem Text extrahiert. Telefonnummern und E-Mails werden per Muster erkannt, es kann Fehltreffer geben. Klick auf eine Zeile springt zum nächsten Vorkommen.</p>
+    h += `<h3>Indikatoren</h3><p class="hint">Automatisch aus dem Text extrahiert, ohne Abfragen im Netz. Telefonnummern, E-Mails, IP- und Krypto-Adressen werden per Muster erkannt, IBANs zusätzlich per Prüfsumme. Fehltreffer sind möglich. Klick auf eine Zeile springt zum nächsten Vorkommen.</p>
       <div class="chips" id="iocChips">${Object.keys(IOC_LABEL).map(k =>
         `<button data-cat="${k}" aria-pressed="${k === iocCat}">${IOC_LABEL[k]} (${nf.format(a.iocs[k].size)})</button>`).join("")}</div>
       <div class="filterrow"><input type="search" id="iocFilter" placeholder="Filtern …" value="${esc(iocFilter)}" style="flex:1"></div><div id="iocTable"></div>`;
@@ -915,26 +1179,71 @@ function renderTab() {
     renderIocTable();
     return;
   }
+  if (panelTab === "media") {
+    const files = [...a.iocs.file.values()].sort((x, y) => x.idx[0] - y.idx[0]);
+    const imgs = files.filter(f => /\.jpe?g$/i.test(f.value) && mediaHas(f.value));
+    h += `<h3>Medien (${nf.format(files.length)})</h3>
+      <div class="filterrow"><button id="exifAll" ${imgs.length ? "" : "disabled"}>Metadaten aller ${nf.format(imgs.length)} JPEG-Bilder auslesen</button><span class="progress" id="exifProg"></span></div>
+      <p class="hint">Liest EXIF-Daten (Kamera, Aufnahmezeit, Software, GPS) direkt aus den Dateien. Bei normal gesendeten Fotos entfernt WhatsApp diese Daten in der Regel; als Dokument gesendete Bilder können sie noch enthalten. GPS-Funde erscheinen zusätzlich unter Indikatoren → Standorte.</p>
+      <table class="t"><tr><th>Datei</th><th>Zeit</th><th>Person</th><th class="n">Größe</th><th>Metadaten</th></tr>`;
+    for (const f of files) {
+      const m = messages[f.idx[0]], ev = evidence.find(e => e.name.toLowerCase() === f.value.toLowerCase());
+      const x = exifCache.get(f.value);
+      h += `<tr class="jump" data-i="${f.idx[0]}"><td class="v">${esc(f.value)}</td><td>${dtf.format(m.date)}</td><td>${esc(m.sender || "")}</td>
+        <td class="n">${ev ? nf.format(ev.size) : '<span class="muted">fehlt</span>'}</td>
+        <td>${x === undefined ? "" : x ? esc(exifSummary(x)) : '<span class="muted">keine</span>'}</td></tr>`;
+    }
+    h += `</table>`;
+  }
+  if (panelTab === "anomalies") {
+    h += `<h3>Anomalien (${nf.format(a.anomalies.length)})</h3>
+      <p class="hint">Stellen, die bei einer Prüfung auffallen sollten. Eine Anomalie ist kein Beweis für Manipulation, sondern ein Grund, genauer hinzusehen. <span class="sev-a">auffällig</span> = passt nicht zu einem unveränderten Export, <span class="sev-h">Hinweis</span> = häufig harmlos.</p>
+      <table class="t"><tr><th>Stufe</th><th>Art</th><th>Zeile</th><th>Details</th></tr>` +
+      (a.anomalies.length ? a.anomalies.map(x => `<tr class="${x.i != null ? "jump" : ""}" ${x.i != null ? `data-i="${x.i}"` : ""}>
+        <td class="${x.sev === "auffällig" ? "sev-a" : "sev-h"}">${x.sev === "auffällig" ? "auffällig" : "Hinweis"}</td><td>${esc(x.type)}</td>
+        <td class="n">${x.line ?? "–"}</td><td>${esc(x.detail)}</td></tr>`).join("") : `<tr><td colspan="4" class="muted">Keine Anomalien gefunden.</td></tr>`) + `</table>`;
+  }
+  if (panelTab === "marks") {
+    const list = [...marks.keys()].sort((x, y) => x - y);
+    h += `<h3>Markierte Nachrichten (${nf.format(list.length)})</h3>
+      <p class="hint">Im Chat mit ☆ neben einer Nachricht markieren. Markierungen und Notizen kommen mit zwei Nachrichten Kontext in den Bericht. Sie werden nicht gespeichert.</p>
+      <table class="t"><tr><th>Zeit</th><th>Person</th><th>Nachricht</th><th>Notiz</th><th></th></tr>` +
+      (list.length ? list.map(i => { const m = messages[i]; return `<tr><td class="jump-cell"><a href="#" data-goto="${i}">${dtf.format(m.date)}</a><br><span class="muted">Zeile ${m.line}</span></td>
+        <td>${esc(m.sender || "System")}</td><td>${esc(m.text.slice(0, 300))}</td>
+        <td><input data-note="${i}" value="${esc(marks.get(i))}" placeholder="Notiz" style="width:100%"></td>
+        <td><button data-unmark="${i}" title="Markierung entfernen">✕</button></td></tr>`; }).join("") : `<tr><td colspan="5" class="muted">Noch nichts markiert.</td></tr>`) + `</table>`;
+  }
   if (panelTab === "words") {
     h += `<h3>Häufigste Wörter</h3><p class="hint">Ab vier Buchstaben, ohne häufige Füllwörter (Deutsch, Englisch).</p>` + hbars(a.words, "mal");
     h += `<h3>Häufigste Emojis</h3>` + hbars(a.emojis, "mal");
   }
   if (panelTab === "events") {
-    const list = (title, arr, hint) => `<h3>${title} (${nf.format(arr.length)})</h3>${hint ? `<p class="hint">${hint}</p>` : ""}<table class="t"><tr><th>Zeit</th><th>Person</th><th>Text</th></tr>` +
-      arr.slice(0, 2000).map(i => { const m = messages[i]; return `<tr class="jump" data-i="${i}"><td>${dtf.format(m.date)}</td><td>${esc(m.system ? "System" : m.sender)}</td><td>${esc(m.text.slice(0, 200))}</td></tr>`; }).join("") + `</table>`;
-    h += list("Systemereignisse", a.events, "Beitritte, Austritte, Nummernwechsel, Namens- und Gruppenänderungen, Verschlüsselungshinweise.");
-    h += list("Gelöschte Nachrichten", a.deleted);
+    const list = (title, arr, hint) => `<h3>${title} (${nf.format(arr.length)})</h3>${hint ? `<p class="hint">${hint}</p>` : ""}<table class="t"><tr><th>Zeit</th><th>Zeile</th><th>Person</th><th>Text</th></tr>` +
+      arr.slice(0, 2000).map(i => { const m = messages[i]; return `<tr class="jump" data-i="${i}"><td>${dtf.format(m.date)}</td><td class="n">${m.line}</td><td>${esc(m.system ? "System" : m.sender)}</td><td>${esc(m.text.slice(0, 200))}</td></tr>`; }).join("") + `</table>`;
+    h += list("Systemereignisse", a.events, "Beitritte, Austritte, Nummernwechsel, Namens- und Gruppenänderungen, Sicherheitshinweise.");
+    h += list("Gelöschte Nachrichten", a.deleted, "Der Inhalt ist nicht im Export enthalten und lässt sich daraus nicht wiederherstellen.");
     h += list("Bearbeitete Nachrichten", a.edited, "Der Export enthält nur die letzte Fassung.");
   }
-  if (panelTab === "export") {
-    h += `<h3>Export</h3><p class="hint">Die Dateien werden im Browser erzeugt und direkt heruntergeladen.</p>
+  if (panelTab === "evidence") {
+    const done = evidence.filter(e => hashCache.has(e.path)).length;
+    h += `<h3>Asservatenliste (${nf.format(evidence.length)} Dateien)</h3>
+      <div class="filterrow"><button id="hashAll">Alle Dateien hashen</button><button data-exp="ev-csv">Als CSV exportieren</button><span class="progress" id="hashProg">${done ? nf.format(done) + " von " + nf.format(evidence.length) + " gehasht" : ""}</span></div>
+      <p class="hint">Alle eingelesenen Dateien mit Größe, Zeitstempeln und Prüfsummen. ZIP-Zeitstempel stammen aus dem Archiv (lokale Zeit des packenden Geräts), „Datei geändert“ aus dem Dateisystem dieses Rechners und ist nach dem Kopieren oft nicht mehr aussagekräftig.</p>
+      <div style="overflow-x:auto"><table class="t"><tr><th>Pfad</th><th class="n">Bytes</th><th>Zeitstempel</th><th>SHA-256 / MD5</th></tr>` +
+      evidence.map(ev => { const hh = hashCache.get(ev.path); return `<tr><td class="v">${esc(ev.path)}</td><td class="n">${nf.format(ev.size)}</td>
+        <td>${ev.zipTime ? "ZIP " + fmtWall(ev.zipTime) : ""}${ev.zipTimeUtc ? "<br>UTC " + utcStr(ev.zipTimeUtc) : ""}${ev.fsTime ? "geändert " + utcStr(ev.fsTime) : ""}</td>
+        <td class="hash">${hh ? hh.sha256 + "<br><span class='muted'>" + hh.md5 + "</span>" : ""}</td></tr>`; }).join("") + `</table></div>`;
+  }
+  if (panelTab === "report") {
+    h += `<h3>Forensischer Bericht</h3>
+      <div class="filterrow"><button data-exp="report-view">Bericht anzeigen (druckbar)</button><button data-exp="report-html">Bericht herunterladen (HTML)</button><button data-exp="report">Bericht (JSON)</button></div>
+      <p class="hint">Enthält Fallakte, Asservat mit Prüfsummen, Methodik und Grenzen, Personen, Anomalien, markierte Nachrichten mit Kontext, alle Indikatoren und Systemereignisse. Über die Druckfunktion des Browsers als PDF speichern.</p>
+      <h3>Daten</h3>
       <div class="filterrow">
-        <button data-exp="msgs-csv">Nachrichten (CSV)</button>
-        <button data-exp="msgs-json">Nachrichten (JSON)</button>
-        <button data-exp="ioc-csv">Indikatoren (CSV)</button>
-        <button data-exp="report">Bericht (JSON)</button>
+        <button data-exp="msgs-csv">Nachrichten (CSV)</button><button data-exp="msgs-json">Nachrichten (JSON)</button>
+        <button data-exp="ioc-csv">Indikatoren (CSV)</button><button data-exp="ev-csv">Asservatenliste (CSV)</button>
       </div>
-      <p class="hint">Der Bericht enthält Quelle, SHA-256, Statistiken pro Person, alle Indikatoren mit Fundstellen sowie gelöschte, bearbeitete und Systemnachrichten.</p>`;
+      <p class="hint">Nachrichten enthalten Zeilennummer der Quelldatei, Zeit wie im Export, Zeit mit Offset und UTC (Zeitzone: ${esc(tz)}).</p>`;
   }
   b.innerHTML = h;
 }
@@ -944,17 +1253,19 @@ function renderIocTable() {
   const q = iocFilter.toLowerCase();
   const rows = [...a.iocs[iocCat].values()].filter(e => !q || e.value.toLowerCase().includes(q) || [...e.senders].some(s => s.toLowerCase().includes(q)))
     .sort((x, y) => y.idx.length - x.idx.length);
-  let h = `<table class="t"><tr><th>Wert</th><th class="n">Anzahl</th><th>erstmals</th><th>zuletzt</th><th>von</th>${iocCat === "geo" ? "<th></th>" : ""}</tr>`;
+  const geo = iocCat === "geo";
+  let h = `<table class="t"><tr><th>Wert</th><th class="n">Anzahl</th><th>erstmals</th><th>zuletzt</th><th>von</th>${geo || iocCat === "phone" ? "<th>Quelle</th>" : ""}</tr>`;
   for (const e of rows.slice(0, 1500)) {
     const f = messages[e.idx[0]].date, l = messages[e.idx.at(-1)].date;
     h += `<tr class="jump" data-ioc="${esc(e.value)}"><td class="v">${esc(e.value)}</td><td class="n">${nf.format(e.idx.length)}</td>
       <td>${df.format(f)}</td><td>${df.format(l)}</td><td>${esc([...e.senders].join(", "))}</td>
-      ${iocCat === "geo" ? `<td><a href="https://www.openstreetmap.org/?mlat=${e.lat}&mlon=${e.lon}#map=16/${e.lat}/${e.lon}" target="_blank" rel="noopener noreferrer" title="Öffnet openstreetmap.org (extern)">Karte ↗</a></td>` : ""}</tr>`;
+      ${geo ? `<td>${esc([...e.sources].join(", "))} · <a href="https://www.openstreetmap.org/?mlat=${e.lat}&mlon=${e.lon}#map=16/${e.lat}/${e.lon}" target="_blank" rel="noopener noreferrer" title="Öffnet openstreetmap.org (extern)">Karte ↗</a></td>` : ""}
+      ${iocCat === "phone" ? `<td>${esc([...e.sources].join(", "))}</td>` : ""}</tr>`;
   }
-  if (!rows.length) h += `<tr><td colspan="6" style="color:var(--muted)">Nichts gefunden.</td></tr>`;
+  if (!rows.length) h += `<tr><td colspan="6" class="muted">Nichts gefunden.</td></tr>`;
   h += `</table>`;
   if (rows.length > 1500) h += `<p class="hint">${nf.format(rows.length - 1500)} weitere, bitte filtern oder exportieren.</p>`;
-  if (iocCat === "geo") h += `<p class="hint">„Karte“ öffnet openstreetmap.org in einem neuen Tab. Das ist der einzige Weg, auf dem RE:Chat etwas nach außen gibt, und passiert nur auf deinen Klick.</p>`;
+  if (geo) h += `<p class="hint">„Karte“ öffnet openstreetmap.org in einem neuen Tab. Das ist der einzige Weg, auf dem RE:Chat Daten nach außen gibt, und passiert nur auf deinen Klick.</p>`;
   $("iocTable").innerHTML = h;
 }
 
@@ -967,10 +1278,6 @@ function download(name, text, type) {
 }
 const csvCell = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
 const csv = rows => "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
-const iso = d => {
-  const p = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-};
 function msgType(m) {
   if (m.system) return "system";
   const att = detectAttachment(m.text, mediaHas);
@@ -979,39 +1286,189 @@ function msgType(m) {
   if (RX.deleted.test(m.text.trim())) return "deleted";
   return RX.edited.test(m.text) ? "edited" : "text";
 }
-const baseFile = () => chatTitle(currentChat.name).replace(/[^\p{L}\p{N}_-]+/gu, "_");
+const baseFile = () => (caseInfo.id ? caseInfo.id + "_" : "") + chatTitle(currentChat.name).replace(/[^\p{L}\p{N}_-]+/gu, "_");
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "Z";
+
+async function sourceInfo() {
+  const c = currentChat, ev = c.ev, cont = ev?.parent;
+  const h = ev ? await hashEvidence(ev).catch(e => ({ error: e.message })) : null;
+  const hc = cont ? await hashEvidence(cont).catch(e => ({ error: e.message })) : null;
+  return {
+    datei: ev?.path || c.name, bytes: c.size, zeilen: c.msgs.lines, format: c.msgs.format, datumsformat: c.msgs.order,
+    zeitstempel_zip_lokal: ev?.zipTime ? wallIso(ev.zipTime) : null, zeitstempel_zip_utc: ev?.zipTimeUtc ? utcStr(ev.zipTimeUtc) : null,
+    datei_geaendert_utc: ev?.fsTime ? utcStr(ev.fsTime) : null, pruefsummen: h,
+    container: cont ? { datei: cont.path, bytes: cont.size, datei_geaendert_utc: utcStr(cont.fsTime), pruefsummen: hc } : null,
+  };
+}
+
+async function buildReport() {
+  const a = analysis;
+  return {
+    werkzeug: "RE:Chat " + VERSION, erstellt_utc: new Date().toISOString(),
+    fall: { aktenzeichen: caseInfo.id || null, bearbeitet_von: caseInfo.examiner || null, notizen: caseInfo.notes || null },
+    zeitzone_exportgeraet: tz,
+    quelle: await sourceInfo(),
+    zeitraum: { erste: a.first && { export: a.first.rawTime, utc: msgUtc(a.first), zeile: a.first.line },
+      letzte: a.last && { export: a.last.rawTime, utc: msgUtc(a.last), zeile: a.last.line }, aktive_tage: a.days.size },
+    personen: a.people.map(p => ({ name: p.name, nachrichten: p.msgs, woerter: p.words, medien: p.media, links: p.links,
+      geloescht: p.deleted, bearbeitet: p.edited, median_antwort_min: median(p.resp), stunden: p.hours })),
+    anomalien: a.anomalies.map(x => ({ stufe: x.sev, art: x.type, zeile: x.line, details: x.detail })),
+    markierungen: [...marks.entries()].sort((x, y) => x[0] - y[0]).map(([i, note]) => {
+      const m = messages[i];
+      return { zeile: m.line, zeit_export: m.rawTime, zeit_utc: msgUtc(m), person: m.sender, text: m.text, notiz: note || null };
+    }),
+    indikatoren: Object.fromEntries(Object.entries(a.iocs).map(([k, map]) => [k, [...map.values()].map(e => ({ wert: e.value, anzahl: e.idx.length,
+      personen: [...e.senders], quellen: [...e.sources], zeilen: e.idx.map(i => messages[i].line), ...(e.lat != null ? { lat: e.lat, lon: e.lon } : {}) }))])),
+    medien_metadaten: Object.fromEntries([...exifCache.entries()].filter(([, v]) => v)),
+    geloescht: a.deleted.map(i => ({ zeile: messages[i].line, zeit_utc: msgUtc(messages[i]), person: messages[i].sender })),
+    bearbeitet: a.edited.map(i => ({ zeile: messages[i].line, zeit_utc: msgUtc(messages[i]), person: messages[i].sender, text: messages[i].text })),
+    systemereignisse: a.events.map(i => ({ zeile: messages[i].line, zeit_utc: msgUtc(messages[i]), text: messages[i].text })),
+    asservate: evidence.map(ev => ({ pfad: ev.path, bytes: ev.size, zip_lokal: ev.zipTime ? wallIso(ev.zipTime) : null,
+      zip_utc: ev.zipTimeUtc ? utcStr(ev.zipTimeUtc) : null, geaendert_utc: ev.fsTime ? utcStr(ev.fsTime) : null, pruefsummen: hashCache.get(ev.path) || null })),
+  };
+}
+
+async function buildReportHtml() {
+  const r = await buildReport(), a = analysis;
+  const e = v => esc(String(v ?? "–"));
+  const tbl = (head, rows) => `<table><thead><tr>${head.map(x => `<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map(row => `<tr>${row.map(x => `<td>${x}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${head.length}">keine</td></tr>`}</tbody></table>`;
+  const hs = h => !h ? "–" : h.error ? e(h.error) : `<code>MD5 ${h.md5}<br>SHA-1 ${h.sha1}<br>SHA-256 ${h.sha256}</code>`;
+  const q = r.quelle;
+  const ctx = i => {
+    const from = Math.max(0, i - 2), to = Math.min(messages.length - 1, i + 2);
+    const rows = [];
+    for (let k = from; k <= to; k++) {
+      const m = messages[k];
+      rows.push(`<div class="ctx${k === i ? " hl" : ""}"><span>Z. ${m.line} · ${e(m.rawTime)}</span> <b>${e(m.sender || "System")}</b>: ${e(m.text)}</div>`);
+    }
+    return rows.join("");
+  };
+  const iocSections = Object.entries(IOC_LABEL).map(([k, label]) => {
+    const list = [...a.iocs[k].values()].sort((x, y) => y.idx.length - x.idx.length);
+    if (!list.length) return "";
+    return `<h3>${label} (${list.length})</h3>` + tbl(["Wert", "Anzahl", "Personen", "Zeilen"],
+      list.map(x => [`<code>${e(x.value)}</code>${x.sources.size ? "<br><small>" + e([...x.sources].join(", ")) + "</small>" : ""}`, x.idx.length, e([...x.senders].join(", ")),
+        e(x.idx.slice(0, 30).map(i => messages[i].line).join(", ") + (x.idx.length > 30 ? " …" : ""))]));
+  }).join("");
+  return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Bericht ${e(r.fall.aktenzeichen || chatTitle(currentChat.name))} – RE:Chat</title>
+<style>
+  body { font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1e1e2e; max-width: 960px; margin: 24px auto; padding: 0 20px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h1 span { color: #40a02b; } h2 { font-size: 16px; border-bottom: 2px solid #1e1e2e; padding-bottom: 3px; margin-top: 28px; }
+  h3 { font-size: 13.5px; margin: 16px 0 6px; } table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 12px; }
+  th, td { border: 1px solid #ccd0da; padding: 4px 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; } th { background: #eff1f5; white-space: nowrap; }
+  code { font: 11.5px ui-monospace, Menlo, Consolas, monospace; } .meta td:first-child { width: 220px; font-weight: 600; background: #eff1f5; }
+  .note { background: #fdf6e3; border-left: 4px solid #df8e1d; padding: 8px 12px; margin: 10px 0; }
+  .ctx { font-size: 12px; padding: 2px 6px; white-space: pre-wrap; } .ctx span { color: #6c6f85; font-size: 11px; } .ctx.hl { background: #f9e2af66; }
+  .mark { border: 1px solid #ccd0da; border-radius: 6px; padding: 6px; margin: 8px 0; page-break-inside: avoid; }
+  .sig { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; } .sig div { border-top: 1px solid #1e1e2e; padding-top: 4px; font-size: 11px; }
+  @media print { body { margin: 0; } h2 { page-break-after: avoid; } }
+</style></head><body>
+<h1><span>RE:</span>Chat · Forensischer Bericht</h1>
+<div>Erstellt ${e(r.erstellt_utc)} (UTC) mit ${e(r.werkzeug)}</div>
+
+<h2>1. Fall</h2>
+<table class="meta"><tr><td>Aktenzeichen</td><td>${e(r.fall.aktenzeichen)}</td></tr><tr><td>Bearbeitet von</td><td>${e(r.fall.bearbeitet_von)}</td></tr>
+<tr><td>Notizen</td><td style="white-space:pre-wrap">${e(r.fall.notizen)}</td></tr></table>
+
+<h2>2. Asservat</h2>
+<table class="meta"><tr><td>Chat-Datei</td><td>${e(q.datei)}</td></tr><tr><td>Größe</td><td>${e(nf.format(q.bytes))} Bytes, ${e(nf.format(q.zeilen))} Zeilen</td></tr>
+<tr><td>Prüfsummen Chat-Datei</td><td>${hs(q.pruefsummen)}</td></tr>
+${q.zeitstempel_zip_lokal ? `<tr><td>Zeitstempel in der ZIP</td><td>${e(q.zeitstempel_zip_lokal)} (lokal)${q.zeitstempel_zip_utc ? ", " + e(q.zeitstempel_zip_utc) + " (UTC)" : ""}</td></tr>` : ""}
+${q.container ? `<tr><td>Container</td><td>${e(q.container.datei)}, ${e(nf.format(q.container.bytes))} Bytes</td></tr><tr><td>Prüfsummen Container</td><td>${hs(q.container.pruefsummen)}</td></tr>` : ""}
+<tr><td>Erkanntes Format</td><td>${e(q.format)}, Datum ${e(q.datumsformat)}</td></tr>
+<tr><td>Zeitzone Exportgerät (angenommen)</td><td>${e(r.zeitzone_exportgeraet)}</td></tr>
+<tr><td>Zeitraum</td><td>${e(r.zeitraum.erste?.export)} bis ${e(r.zeitraum.letzte?.export)} (Export)<br>${e(r.zeitraum.erste?.utc)} bis ${e(r.zeitraum.letzte?.utc)} (UTC)</td></tr></table>
+
+<h2>3. Methodik und Grenzen</h2>
+<div class="note">
+Ausgewertet wurde ein Chat-Export von WhatsApp, kein forensisches Abbild des Geräts. Ein Export ist eine Textdatei, die sich vor der Sicherung unbemerkt bearbeiten lässt. Die Prüfsummen belegen nur, dass die Datei seit ihrer Berechnung unverändert ist.<br>
+Zeitangaben im Export sind Wanduhrzeiten des exportierenden Geräts ohne Zeitzone; die UTC-Werte beruhen auf der oben angenommenen Zeitzone.
+Gelöschte Nachrichten sind nur als Hinweis enthalten, bearbeitete nur in der letzten Fassung. Indikatoren wurden automatisch per Muster erkannt und sind vor einer Verwendung einzeln zu prüfen.
+Die Auswertung erfolgte vollständig lokal im Browser; es wurden keine externen Dienste abgefragt.</div>
+
+<h2>4. Beteiligte</h2>
+${tbl(["Person", "Nachrichten", "Wörter", "Medien", "Links", "gelöscht", "bearbeitet", "Median Antwort"],
+  r.personen.map(p => [e(p.name), p.nachrichten, p.woerter, p.medien, p.links, p.geloescht, p.bearbeitet, e(fmtDur(p.median_antwort_min))]))}
+
+<h2>5. Anomalien</h2>
+${tbl(["Stufe", "Art", "Zeile", "Details"], r.anomalien.map(x => [`<b style="white-space:nowrap;color:${x.stufe === "auffällig" ? "#d20f39" : "#df8e1d"}">${x.stufe === "auffällig" ? "auffällig" : "Hinweis"}</b>`, e(x.art), e(x.zeile), e(x.details)]))}
+
+<h2>6. Markierte Nachrichten</h2>
+${[...marks.keys()].sort((x, y) => x - y).map(i => `<div class="mark">${ctx(i)}${marks.get(i) ? `<div style="margin-top:4px"><b>Notiz:</b> ${e(marks.get(i))}</div>` : ""}</div>`).join("") || "<p>keine</p>"}
+
+<h2>7. Indikatoren</h2>
+${iocSections || "<p>keine</p>"}
+${Object.keys(r.medien_metadaten).length ? `<h3>Metadaten aus Medien</h3>` + tbl(["Datei", "Metadaten"], Object.entries(r.medien_metadaten).map(([k, v]) => [`<code>${e(k)}</code>`, e(exifSummary(v))])) : ""}
+
+<h2>8. Systemereignisse, Löschungen, Bearbeitungen</h2>
+${tbl(["Zeile", "Zeit (UTC)", "Art", "Inhalt"], [
+  ...r.systemereignisse.map(x => [x.zeile, e(x.zeit_utc), "System", e(x.text)]),
+  ...r.geloescht.map(x => [x.zeile, e(x.zeit_utc), "gelöscht", e(x.person)]),
+  ...r.bearbeitet.map(x => [x.zeile, e(x.zeit_utc), "bearbeitet", e(x.person + ": " + x.text)]),
+].sort((x, y) => x[0] - y[0]))}
+
+<h2>9. Asservatenliste</h2>
+${tbl(["Pfad", "Bytes", "Zeitstempel", "SHA-256"], r.asservate.map(x => [`<code>${e(x.pfad)}</code>`, e(nf.format(x.bytes)),
+  e([x.zip_lokal && "ZIP " + x.zip_lokal, x.zip_utc && "UTC " + x.zip_utc, x.geaendert_utc && "geändert " + x.geaendert_utc].filter(Boolean).join(" · ")),
+  x.pruefsummen ? `<code>${x.pruefsummen.sha256}</code>` : "nicht berechnet"]))}
+
+<div class="sig"><div>Ort, Datum</div><div>Unterschrift</div></div>
+</body></html>`;
+}
 
 async function doExport(kindName) {
   const a = analysis;
   if (kindName === "msgs-csv") {
-    download(baseFile() + "_nachrichten.csv", csv([["nr", "zeit_lokal", "person", "typ", "text", "anhang"],
-      ...messages.map((m, i) => [i + 1, iso(m.date), m.system ? "" : m.sender, msgType(m), m.text, detectAttachment(m.text, mediaHas)?.file || ""])]), "text/csv");
+    download(baseFile() + "_nachrichten.csv", csv([["nr", "zeile", "zeit_export", "zeit_lokal", "zeit_utc", "person", "typ", "text", "anhang", "markiert", "notiz"],
+      ...messages.map((m, i) => [i + 1, m.line, m.rawTime, msgLocal(m), msgUtc(m), m.system ? "" : m.sender, msgType(m), m.text,
+        detectAttachment(m.text, mediaHas)?.file || "", marks.has(i) ? "ja" : "", marks.get(i) || ""])]), "text/csv");
   } else if (kindName === "msgs-json") {
-    download(baseFile() + "_nachrichten.json", JSON.stringify(messages.map((m, i) => ({ nr: i + 1, zeit_lokal: iso(m.date),
-      person: m.system ? null : m.sender, typ: msgType(m), text: m.text, anhang: detectAttachment(m.text, mediaHas)?.file || null })), null, 2), "application/json");
+    download(baseFile() + "_nachrichten.json", JSON.stringify(messages.map((m, i) => ({ nr: i + 1, zeile: m.line, zeit_export: m.rawTime,
+      zeit_lokal: msgLocal(m), zeit_utc: msgUtc(m), person: m.system ? null : m.sender, typ: msgType(m), text: m.text,
+      anhang: detectAttachment(m.text, mediaHas)?.file || null, markiert: marks.has(i), notiz: marks.get(i) || null })), null, 2), "application/json");
   } else if (kindName === "ioc-csv") {
-    const rows = [["kategorie", "wert", "anzahl", "erstmals", "zuletzt", "personen", "nachrichten_nr"]];
+    const rows = [["kategorie", "wert", "anzahl", "erstmals_utc", "zuletzt_utc", "personen", "quellen", "zeilen"]];
     for (const [cat, map] of Object.entries(a.iocs)) for (const e of map.values())
-      rows.push([cat, e.value, e.idx.length, iso(messages[e.idx[0]].date), iso(messages[e.idx.at(-1)].date), [...e.senders].join("; "), e.idx.map(i => i + 1).join(" ")]);
+      rows.push([cat, e.value, e.idx.length, msgUtc(messages[e.idx[0]]), msgUtc(messages[e.idx.at(-1)]), [...e.senders].join("; "), [...e.sources].join("; "), e.idx.map(i => messages[i].line).join(" ")]);
     download(baseFile() + "_indikatoren.csv", csv(rows), "text/csv");
+  } else if (kindName === "ev-csv") {
+    download(baseFile() + "_asservate.csv", csv([["pfad", "bytes", "zip_lokal", "zip_utc", "geaendert_utc", "md5", "sha1", "sha256"],
+      ...evidence.map(ev => { const h = hashCache.get(ev.path) || {}; return [ev.path, ev.size, ev.zipTime ? wallIso(ev.zipTime) : "",
+        ev.zipTimeUtc ? utcStr(ev.zipTimeUtc) : "", ev.fsTime ? utcStr(ev.fsTime) : "", h.md5, h.sha1, h.sha256]; })]), "text/csv");
   } else if (kindName === "report") {
-    const c = currentChat;
-    const report = {
-      werkzeug: "RE:Chat", erstellt: new Date().toISOString(),
-      quelle: { datei: c.name, bytes: c.size, sha256: await sha256(await c.blob()),
-        container: c.container ? { datei: c.container.name, bytes: c.container.size, sha256: c.container.size > 1.5e9 ? null : await sha256(c.container) } : null,
-        format: c.msgs.format, datumsreihenfolge: c.msgs.order, hinweis: "Zeitangaben in lokaler Zeit des exportierenden Geräts" },
-      zeitraum: { erste: a.first && iso(a.first), letzte: a.last && iso(a.last), aktive_tage: a.days.size },
-      personen: a.people.map(p => ({ name: p.name, nachrichten: p.msgs, woerter: p.words, medien: p.media, links: p.links,
-        geloescht: p.deleted, bearbeitet: p.edited, median_antwort_min: median(p.resp), erste: iso(p.first), letzte: iso(p.last), stunden: p.hours })),
-      indikatoren: Object.fromEntries(Object.entries(a.iocs).map(([k, map]) => [k, [...map.values()].map(e => ({ wert: e.value, anzahl: e.idx.length,
-        personen: [...e.senders], nachrichten_nr: e.idx.map(i => i + 1), ...(e.lat != null ? { lat: e.lat, lon: e.lon } : {}) }))])),
-      geloescht: a.deleted.map(i => ({ nr: i + 1, zeit: iso(messages[i].date), person: messages[i].sender })),
-      bearbeitet: a.edited.map(i => ({ nr: i + 1, zeit: iso(messages[i].date), person: messages[i].sender, text: messages[i].text })),
-      systemereignisse: a.events.map(i => ({ nr: i + 1, zeit: iso(messages[i].date), text: messages[i].text })),
-    };
-    download(baseFile() + "_bericht.json", JSON.stringify(report, null, 2), "application/json");
+    download(baseFile() + "_bericht_" + stamp() + ".json", JSON.stringify(await buildReport(), null, 2), "application/json");
+  } else if (kindName === "report-html") {
+    download(baseFile() + "_bericht_" + stamp() + ".html", await buildReportHtml(), "text/html");
+  } else if (kindName === "report-view") {
+    const url = URL.createObjectURL(new Blob([await buildReportHtml()], { type: "text/html" }));
+    const w = window.open(url, "_blank");
+    if (!w) download(baseFile() + "_bericht_" + stamp() + ".html", await buildReportHtml(), "text/html");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
+}
+
+async function exifAll() {
+  const files = [...analysis.iocs.file.values()].filter(f => /\.jpe?g$/i.test(f.value) && mediaHas(f.value));
+  let n = 0;
+  for (const f of files) {
+    if (!exifCache.has(f.value)) {
+      let x = null;
+      try { x = await readExif(await mediaGet(f.value).get()); } catch {}
+      exifCache.set(f.value, x);
+      if (x && x.lat != null) analysis.add("geo", x.lat.toFixed(5) + ", " + x.lon.toFixed(5), f.idx[0], { lat: x.lat, lon: x.lon, source: "EXIF " + f.value });
+    }
+    const p = $("exifProg"); if (p) p.textContent = `${++n} von ${files.length}`;
+  }
+  if (panelTab === "media") renderTab();
+}
+
+async function hashAll() {
+  let n = 0;
+  for (const ev of evidence) {
+    try { await hashEvidence(ev); } catch {}
+    const p = $("hashProg"); if (p) p.textContent = `${++n} von ${evidence.length} gehasht`;
+  }
+  if (panelTab === "evidence") renderTab();
 }
 
 /* ----- Ereignisse im Panel ----- */
@@ -1029,7 +1486,13 @@ $("pbody").addEventListener("click", e => {
   }
   const exp = e.target.closest("[data-exp]");
   if (exp) { doExport(exp.dataset.exp); return; }
-  if (e.target.closest("a")) return;
+  if (e.target.closest("#exifAll")) { e.target.disabled = true; exifAll(); return; }
+  if (e.target.closest("#hashAll")) { e.target.disabled = true; hashAll(); return; }
+  const un = e.target.closest("[data-unmark]");
+  if (un) { toggleMark(+un.dataset.unmark); renderTab(); return; }
+  const go = e.target.closest("[data-goto]");
+  if (go) { e.preventDefault(); jumpTo(+go.dataset.goto); return; }
+  if (e.target.closest("a, input, button, select, textarea")) return;
   const row = e.target.closest("tr.jump");
   if (!row) return;
   if (row.dataset.i) return jumpTo(+row.dataset.i);
@@ -1041,20 +1504,26 @@ $("pbody").addEventListener("click", e => {
   jumpTo(entry.idx[n]);
 });
 $("pbody").addEventListener("input", e => {
-  if (e.target.id === "iocFilter") { iocFilter = e.target.value; renderIocTable(); }
+  const t = e.target;
+  if (t.id === "iocFilter") { iocFilter = t.value; renderIocTable(); }
+  else if (t.id === "cId") caseInfo.id = t.value;
+  else if (t.id === "cEx") caseInfo.examiner = t.value;
+  else if (t.id === "cNo") caseInfo.notes = t.value;
+  else if (t.dataset.note) marks.set(+t.dataset.note, t.value);
 });
+$("pbody").addEventListener("change", e => { if (e.target.id === "cTz") { tz = e.target.value; renderTab(); } });
 const tip = $("tip");
 $("pbody").addEventListener("mousemove", e => {
   const t = e.target.closest("[data-tip]");
   if (!t) { tip.classList.add("hidden"); return; }
   tip.textContent = t.dataset.tip;
   tip.classList.remove("hidden");
-  const w = tip.offsetWidth;
-  tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 12) + "px";
+  tip.style.left = Math.min(innerWidth - tip.offsetWidth - 8, e.clientX + 12) + "px";
   tip.style.top = (e.clientY - 40) + "px";
 });
 $("pbody").addEventListener("mouseleave", () => tip.classList.add("hidden"));
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("lightbox")) closePanel(); });
+$("ver").textContent = "v" + VERSION;
 
 /* ===================== Suche & Navigation ===================== */
 
@@ -1110,6 +1579,8 @@ $("chatSel").addEventListener("change", e => openChat(+e.target.value));
 $("reset").onclick = () => location.reload();
 
 chatEl.addEventListener("click", e => {
+  const mk = e.target.closest("[data-mark]");
+  if (mk) { toggleMark(+mk.dataset.mark); return; }
   const img = e.target.closest(".media img");
   if (!img) return;
   const lb = document.createElement("div");

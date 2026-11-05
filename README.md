@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  <a href="https://r-winter-mute-dev.github.io/re-chat/"><img src="https://img.shields.io/badge/Zum_Werkzeug-öffnen-a6e3a1?style=for-the-badge&labelColor=1a1a1a" alt="Zum Werkzeug"></a>
+  <a href="https://r-winter-mute-dev.github.io/RE-Chat/"><img src="https://img.shields.io/badge/Zum_Werkzeug-öffnen-a6e3a1?style=for-the-badge&labelColor=1a1a1a" alt="Zum Werkzeug"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/r-winter-mute-dev/re-chat/actions/workflows/pages.yml"><img src="https://github.com/r-winter-mute-dev/re-chat/actions/workflows/pages.yml/badge.svg" alt="Veröffentlichung"></a>
-  <a href="https://github.com/r-winter-mute-dev/re-chat/actions/workflows/ci.yml"><img src="https://github.com/r-winter-mute-dev/re-chat/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
+  <a href="https://github.com/r-winter-mute-dev/RE-Chat/actions/workflows/pages.yml"><img src="https://github.com/r-winter-mute-dev/RE-Chat/actions/workflows/pages.yml/badge.svg" alt="Veröffentlichung"></a>
+  <a href="https://github.com/r-winter-mute-dev/RE-Chat/actions/workflows/ci.yml"><img src="https://github.com/r-winter-mute-dev/RE-Chat/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
   <img src="https://img.shields.io/badge/OSINT-%26_Forensik-a6e3a1?labelColor=2a2a2a" alt="OSINT und Forensik">
   <img src="https://img.shields.io/badge/läuft-lokal_im_Browser-a6e3a1?labelColor=2a2a2a" alt="Läuft lokal im Browser">
   <img src="https://img.shields.io/badge/Uploads-keine-a6e3a1?labelColor=2a2a2a" alt="Keine Uploads">
@@ -143,7 +143,7 @@ Mit Medien entsteht eine `.zip`, die nicht entpackt werden muss. Für eine Auswe
 
 ## Mitmachen
 
-Fehler gefunden oder ein Export, der nicht erkannt wird? [Öffne ein Issue](https://github.com/r-winter-mute-dev/re-chat/issues). Bitte **keine echten Chats** hochladen, sondern nur ein paar anonymisierte Zeilen, an denen man das Format sieht.
+Fehler gefunden oder ein Export, der nicht erkannt wird? [Öffne ein Issue](https://github.com/r-winter-mute-dev/RE-Chat/issues). Bitte **keine echten Chats** hochladen, sondern nur ein paar anonymisierte Zeilen, an denen man das Format sieht.
 
 Am meisten hilft gerade:
 
@@ -162,7 +162,7 @@ Am meisten hilft gerade:
 - **Nachvollziehbar:** Jede Aussage im Bericht verweist auf eine Zeile der Quelldatei. Wo RE:Chat rät (Exportformat, Datumsreihenfolge, Zeitzone, Muster), sagt es das.
 - **Ehrlich über Grenzen:** Ein Export beweist weniger, als er auf den ersten Blick zeigt. Bericht und README sagen das deutlich.
 
-Die Idee, die Ziele und die Entscheidungen kommen von einem Menschen. Code und Texte schreibt die KI, ein Mensch prüft sie und gibt sie frei. Auch so können Fehler drinstecken. Wenn dir etwas falsch vorkommt, [öffne ein Issue](https://github.com/r-winter-mute-dev/re-chat/issues).
+Die Idee, die Ziele und die Entscheidungen kommen von einem Menschen. Code und Texte schreibt die KI, ein Mensch prüft sie und gibt sie frei. Auch so können Fehler drinstecken. Wenn dir etwas falsch vorkommt, [öffne ein Issue](https://github.com/r-winter-mute-dev/RE-Chat/issues).
 
 ## Für Entwickler
 

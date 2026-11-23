@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Veröffentlicht wird nur die Seite selbst, keine Testdaten.
       - run: mkdir _site && cp index.html _site/
       - uses: actions/configure-pages@v5
